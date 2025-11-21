@@ -2,11 +2,31 @@ const express = require('express');
 const { createServer } = require('http');
 const { Server } = require('socket.io');
 const path = require('path');
+const osc = require('node-osc');
+const JZZ = require('jzz');
 
 class MetronomeServer {
-  constructor(scoreData, displaySettings = null, repeatSong = false) {
+  constructor(scoreData, displaySettings = null, repeatSong = false, oscSettings = null, midiSettings = null) {
     this.scoreData = scoreData;
     this.repeatSong = repeatSong;
+    this.oscSettings = oscSettings || { enabled: false, host: '127.0.0.1', port: 8000 };
+    this.oscClient = null;
+    this.lastTriggeredBar = -1; // Track last bar to avoid duplicate triggers
+
+    // MIDI settings
+    this.midiSettings = midiSettings || { enabled: false, outputPort: '' };
+    this.midiOutput = null;
+    this.midiClockInterval = null;
+    this.lastMidiClockTime = 0;
+
+    if (this.oscSettings.enabled) {
+      this.setupOscClient();
+    }
+
+    if (this.midiSettings.enabled && this.midiSettings.outputPort) {
+      this.setupMidiOutput(); // async but we don't need to wait in constructor
+    }
+
     this.displaySettings = displaySettings || {
       lightColor: '#ff0000',
       progressBarColor: '#ff0000',
@@ -62,7 +82,9 @@ class MetronomeServer {
           chords: bar.chords,
           redirect: bar.redirect,
           accentPattern: bar.accentPattern || [],
-          subdivision: bar.subdivision || 'none'
+          subdivision: bar.subdivision || 'none',
+          oscAddress: bar.oscAddress || null,
+          oscArgs: bar.oscArgs || null
         });
       });
     });
@@ -148,6 +170,135 @@ class MetronomeServer {
     this.repeatSong = repeat;
   }
 
+  setupOscClient() {
+    try {
+      if (this.oscClient) {
+        this.oscClient.close();
+      }
+      this.oscClient = new osc.Client(this.oscSettings.host, this.oscSettings.port);
+      console.log(`OSC client connected to ${this.oscSettings.host}:${this.oscSettings.port}`);
+    } catch (error) {
+      console.error('Failed to setup OSC client:', error);
+    }
+  }
+
+  updateOscSettings(settings) {
+    this.oscSettings = settings;
+    if (settings.enabled) {
+      this.setupOscClient();
+    } else if (this.oscClient) {
+      this.oscClient.close();
+      this.oscClient = null;
+    }
+  }
+
+  sendOscMessage(address, args) {
+    if (!this.oscSettings.enabled || !this.oscClient) return;
+
+    try {
+      if (args && args.length > 0) {
+        this.oscClient.send(address, ...args);
+      } else {
+        this.oscClient.send(address);
+      }
+      console.log(`OSC sent: ${address}`, args);
+    } catch (error) {
+      console.error('OSC send error:', error);
+    }
+  }
+
+  // MIDI methods
+  async setupMidiOutput() {
+    try {
+      if (this.midiOutput) {
+        this.midiOutput.close();
+      }
+      const jzz = await JZZ();
+      this.midiOutput = await jzz.openMidiOut(this.midiSettings.outputPort);
+      console.log(`MIDI output opened: ${this.midiSettings.outputPort}`);
+    } catch (error) {
+      console.error('Failed to setup MIDI output:', error);
+      this.midiOutput = null;
+    }
+  }
+
+  async updateMidiSettings(settings) {
+    this.midiSettings = settings;
+
+    if (settings.enabled && settings.outputPort) {
+      await this.setupMidiOutput();
+    } else if (this.midiOutput) {
+      this.stopMidiClock();
+      this.midiOutput.close();
+      this.midiOutput = null;
+    }
+  }
+
+  startMidiClock(tempo) {
+    if (!this.midiSettings.enabled || !this.midiOutput) return;
+
+    this.stopMidiClock();
+
+    // Send MIDI Start message (0xFA)
+    try {
+      this.midiOutput.send([0xFA]);
+      console.log('MIDI Start sent');
+    } catch (error) {
+      console.error('MIDI Start error:', error);
+    }
+
+    // MIDI clock sends 24 pulses per quarter note
+    const pulsesPerQuarterNote = 24;
+    const msPerBeat = 60000 / tempo;
+    const msPerPulse = msPerBeat / pulsesPerQuarterNote;
+
+    this.midiClockInterval = setInterval(() => {
+      if (this.midiOutput && this.isPlaying) {
+        try {
+          this.midiOutput.send([0xF8]); // MIDI Clock pulse
+        } catch (error) {
+          console.error('MIDI Clock error:', error);
+        }
+      }
+    }, msPerPulse);
+  }
+
+  stopMidiClock() {
+    if (this.midiClockInterval) {
+      clearInterval(this.midiClockInterval);
+      this.midiClockInterval = null;
+    }
+
+    // Send MIDI Stop message (0xFC)
+    if (this.midiOutput) {
+      try {
+        this.midiOutput.send([0xFC]);
+        console.log('MIDI Stop sent');
+      } catch (error) {
+        console.error('MIDI Stop error:', error);
+      }
+    }
+  }
+
+  sendMidiContinue() {
+    if (!this.midiSettings.enabled || !this.midiOutput) return;
+
+    try {
+      this.midiOutput.send([0xFB]); // MIDI Continue
+      console.log('MIDI Continue sent');
+    } catch (error) {
+      console.error('MIDI Continue error:', error);
+    }
+  }
+
+  updateMidiClockTempo(tempo) {
+    if (!this.midiSettings.enabled || !this.midiOutput || !this.isPlaying) return;
+
+    // Restart clock with new tempo
+    this.stopMidiClock();
+    this.startMidiClock(tempo);
+  }
+
   notifyClientCountChange() {
     if (this.onClientCountChange) {
       this.onClientCountChange(this.connectedClients);
@@ -166,6 +317,15 @@ class MetronomeServer {
 
   stop() {
     this.pause();
+    if (this.oscClient) {
+      this.oscClient.close();
+      this.oscClient = null;
+    }
+    if (this.midiOutput) {
+      this.stopMidiClock();
+      this.midiOutput.close();
+      this.midiOutput = null;
+    }
     if (this.httpServer) {
       this.httpServer.close();
       console.log('Metronome server stopped');
@@ -175,6 +335,7 @@ class MetronomeServer {
   play() {
     if (this.isPlaying) return;
 
+    const wasPlaying = this.barStartTime !== null; // Check if resuming
     this.isPlaying = true;
     const now = Date.now();
 
@@ -191,8 +352,25 @@ class MetronomeServer {
       this.barStartTime = now;
     }
 
+    // Start MIDI clock
+    const currentTempo = this.getCurrentTempo();
+    if (wasPlaying) {
+      this.sendMidiContinue();
+      this.startMidiClock(currentTempo);
+    } else {
+      this.startMidiClock(currentTempo);
+    }
+
     this.startPlaybackLoop();
     this.io.emit('playback-started');
+  }
+
+  getCurrentTempo() {
+    if (this.inCountoff) {
+      return this.scoreData.sections[0]?.tempo || 120;
+    }
+    const section = this.scoreData.sections[this.currentSectionIndex];
+    return section?.tempo || 120;
   }
 
   pause() {
@@ -205,6 +383,9 @@ class MetronomeServer {
       this.updateInterval = null;
     }
 
+    // Stop MIDI clock (will send MIDI Stop)
+    this.stopMidiClock();
+
     this.io.emit('playback-paused');
   }
 
@@ -216,11 +397,15 @@ class MetronomeServer {
     this.currentBarInSection = 0;
     this.currentBeat = 0;
     this.barStartTime = null;
+    this.lastTriggeredBar = -1; // Reset OSC trigger tracking
 
     if (this.updateInterval) {
       clearInterval(this.updateInterval);
       this.updateInterval = null;
     }
+
+    // Stop MIDI clock
+    this.stopMidiClock();
 
     this.io.emit('playback-stopped');
   }
@@ -317,6 +502,23 @@ class MetronomeServer {
         this.currentBeat = newBeat;
       }
 
+      // Check for OSC trigger on bar start (beat 0, new bar)
+      if (!this.inCountoff && barInfo.absoluteNumber !== this.lastTriggeredBar) {
+        this.lastTriggeredBar = barInfo.absoluteNumber;
+        if (barInfo.oscAddress) {
+          // Parse args - split by comma and try to convert numbers
+          let args = [];
+          if (barInfo.oscArgs) {
+            args = barInfo.oscArgs.split(',').map(arg => {
+              const trimmed = arg.trim();
+              const num = parseFloat(trimmed);
+              return isNaN(num) ? trimmed : num;
+            });
+          }
+          this.sendOscMessage(barInfo.oscAddress, args);
+        }
+      }
+
       // Send state update to all clients
       const state = this.getCurrentState();
       state.subdivision = barInfo.subdivision;
@@ -354,6 +556,7 @@ class MetronomeServer {
 
     // Check for loop
     if (this.loopEnabled && this.loopEnd && currentAbsoluteBar >= this.loopEnd) {
+      this.lastTriggeredBar = -1; // Reset OSC tracking so triggers fire again on loop
       this.seekToBar(this.loopStart || 1);
       return;
     }
@@ -379,6 +582,7 @@ class MetronomeServer {
         if (this.repeatSong) {
           this.currentSectionIndex = 0;
           this.currentBarInSection = 0;
+          this.lastTriggeredBar = -1; // Reset OSC tracking so triggers fire again on loop
           // Don't restart countoff on loop - go straight to bar 1
         } else {
           // Stop playback at end of song

@@ -8,12 +8,18 @@
     "build": "electron-builder --win",
     "build:dir": "electron-builder --win --dir"
   },
-  "keywords": ["metronome", "music", "score"],
+  "keywords": [
+    "metronome",
+    "music",
+    "score"
+  ],
   "author": "",
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
     "express": "^5.1.0",
+    "jzz": "^1.9.6",
+    "node-osc": "^9.1.7",
     "socket.io": "^4.8.1"
   },
   "devDependencies": {
@@ -36,7 +42,10 @@
       "node_modules/**/*"
     ],
     "win": {
-      "target": ["portable", "dir"],
+      "target": [
+        "portable",
+        "dir"
+      ],
       "icon": null,
       "signAndEditExecutable": false
     }

@@ -67,6 +67,8 @@
       <div class="section">
         <h2>Setlist</h2>
         <div class="setlist-controls">
+          <button id="saveSetlist">Save Setlist</button>
+          <button id="loadSetlist">Load Setlist</button>
           <button id="clearSetlist">Clear Setlist</button>
           <button id="moveUp" disabled>Move Up</button>
           <button id="moveDown" disabled>Move Down</button>
@@ -192,6 +194,48 @@
         </div>
         <button id="applyDisplaySettings" style="margin-top: 15px;">Apply Settings</button>
         <button id="resetDisplaySettings" style="margin-top: 15px;">Reset to Defaults</button>
+      </div>
+
+      <div class="section">
+        <h2>OSC Settings</h2>
+        <p class="info-text">Send OSC messages to external applications when reaching specific bars (e.g., trigger backing tracks).</p>
+        <div class="osc-settings-grid">
+          <div class="setting">
+            <label for="oscEnabled">
+              <input type="checkbox" id="oscEnabled">
+              Enable OSC
+            </label>
+          </div>
+          <div class="setting">
+            <label for="oscHost">Target IP:</label>
+            <input type="text" id="oscHost" value="127.0.0.1" placeholder="127.0.0.1">
+          </div>
+          <div class="setting">
+            <label for="oscPort">Target Port:</label>
+            <input type="number" id="oscPort" value="8000" min="1" max="65535">
+          </div>
+        </div>
+        <button id="testOsc" style="margin-top: 15px;">Test OSC Connection</button>
+      </div>
+
+      <div class="section">
+        <h2>MIDI Clock Output</h2>
+        <p class="info-text">Send MIDI clock to sync with DAWs and hardware devices.</p>
+        <div class="midi-settings-grid">
+          <div class="setting">
+            <label for="midiEnabled">
+              <input type="checkbox" id="midiEnabled">
+              Enable MIDI Clock
+            </label>
+          </div>
+          <div class="setting">
+            <label for="midiOutput">MIDI Output:</label>
+            <select id="midiOutput">
+              <option value="">Select MIDI output...</option>
+            </select>
+            <button id="refreshMidiPorts" style="margin-left: 5px;">↻</button>
+          </div>
+        </div>
       </div>
     </div>
   </div>

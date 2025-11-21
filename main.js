@@ -122,14 +122,49 @@ ipcMain.handle('load-musicxml', async () => {
   return { success: false };
 });
 
+// Setlist save/load
+ipcMain.handle('save-setlist', async (event, setlistData) => {
+  const { filePath } = await dialog.showSaveDialog(mainWindow, {
+    title: 'Save Setlist',
+    defaultPath: 'setlist.json',
+    filters: [
+      { name: 'JSON Files', extensions: ['json'] },
+      { name: 'All Files', extensions: ['*'] }
+    ]
+  });
+
+  if (filePath) {
+    await fs.writeFile(filePath, JSON.stringify(setlistData, null, 2));
+    return { success: true, filePath };
+  }
+  return { success: false };
+});
+
+ipcMain.handle('load-setlist', async () => {
+  const { filePaths } = await dialog.showOpenDialog(mainWindow, {
+    title: 'Load Setlist',
+    filters: [
+      { name: 'JSON Files', extensions: ['json'] },
+      { name: 'All Files', extensions: ['*'] }
+    ],
+    properties: ['openFile']
+  });
+
+  if (filePaths && filePaths.length > 0) {
+    const data = await fs.readFile(filePaths[0], 'utf-8');
+    return { success: true, data: JSON.parse(data) };
+  }
+  return { success: false };
+});
+
 // IPC handlers for server control
 ipcMain.handle('start-server', async (event, data) => {
   if (metronomeServer) {
     metronomeServer.stop();
   }
 
-  const { scoreData, displaySettings, repeatSong } = data;
-  metronomeServer = new MetronomeServer(scoreData, displaySettings, repeatSong);
+  const { scoreData, displaySettings, repeatSong, oscSettings, midiSettings } = data;
+  metronomeServer = new MetronomeServer(scoreData, displaySettings, repeatSong, oscSettings, midiSettings);
   const port = await metronomeServer.start();
   setupServerCallbacks();
 
@@ -211,6 +246,51 @@ ipcMain.handle('set-loop', async (event, loopSettings) => {
 ipcMain.handle('update-score', async (event, scoreData) => {
   if (metronomeServer) {
     metronomeServer.updateScore(scoreData);
+    return { success: true };
+  }
+  return { success: false, error: 'Server not started' };
+});
+
+// OSC IPC handlers
+ipcMain.handle('update-osc-settings', async (event, oscSettings) => {
+  if (metronomeServer) {
+    metronomeServer.updateOscSettings(oscSettings);
+    return { success: true };
+  }
+  return { success: false, error: 'Server not started' };
+});
+
+ipcMain.handle('test-osc', async (event, oscSettings) => {
+  try {
+    const osc = require('node-osc');
+    const client = new osc.Client(oscSettings.host, oscSettings.port);
+    client.send('/test', 'Visual Metronome Test', () => {
+      client.close();
+    });
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+// MIDI IPC handlers
+ipcMain.handle('get-midi-ports', async () => {
+  try {
+    const JZZ = require('jzz');
+    // JZZ needs async initialization to detect ports
+    const jzz = await JZZ();
+    const info = jzz.info();
+    const ports = info.outputs.map(o => o.name);
+    return { success: true, ports };
+  } catch (error) {
+    console.error('MIDI port detection error:', error);
+    return { success: false, error: error.message, ports: [] };
+  }
+});
+
+ipcMain.handle('update-midi-settings', async (event, midiSettings) => {
+  if (metronomeServer) {
+    metronomeServer.updateMidiSettings(midiSettings);
     return { success: true };
   }
   return { success: false, error: 'Server not started' };

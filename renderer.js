@@ -47,6 +47,19 @@ let displaySettings = {
   chordColor: '#ffcc00'
 };
 
+// OSC settings
+let oscSettings = {
+  enabled: false,
+  host: '127.0.0.1',
+  port: 8000
+};
+
+// MIDI settings
+let midiSettings = {
+  enabled: false,
+  outputPort: ''
+};
+
 // Initialize
 function init() {
   addSection();
@@ -85,6 +98,8 @@ function setupEventListeners() {
   // Setlist
   document.getElementById('addCurrentToSetlist').addEventListener('click', addToSetlist);
   document.getElementById('loadScoreToSetlist').addEventListener('click', loadScoreToSetlist);
+  document.getElementById('saveSetlist').addEventListener('click', saveSetlist);
+  document.getElementById('loadSetlist').addEventListener('click', loadSetlist);
   document.getElementById('clearSetlist').addEventListener('click', clearSetlist);
   document.getElementById('moveUp').addEventListener('click', moveSetlistItemUp);
   document.getElementById('moveDown').addEventListener('click', moveSetlistItemDown);
@@ -139,6 +154,35 @@ function setupEventListeners() {
 
   document.getElementById('applyDisplaySettings').addEventListener('click', applyDisplaySettings);
   document.getElementById('resetDisplaySettings').addEventListener('click', resetDisplaySettings);
+
+  // OSC settings
+  document.getElementById('oscEnabled').addEventListener('change', (e) => {
+    oscSettings.enabled = e.target.checked;
+    updateOscSettings();
+  });
+  document.getElementById('oscHost').addEventListener('blur', (e) => {
+    oscSettings.host = e.target.value || '127.0.0.1';
+    updateOscSettings();
+  });
+  document.getElementById('oscPort').addEventListener('blur', (e) => {
+    oscSettings.port = parseInt(e.target.value) || 8000;
+    updateOscSettings();
+  });
+  document.getElementById('testOsc').addEventListener('click', testOscConnection);
+
+  // MIDI settings
+  document.getElementById('midiEnabled').addEventListener('change', (e) => {
+    midiSettings.enabled = e.target.checked;
+    updateMidiSettings();
+  });
+  document.getElementById('midiOutput').addEventListener('change', (e) => {
+    midiSettings.outputPort = e.target.value;
+    updateMidiSettings();
+  });
+  document.getElementById('refreshMidiPorts').addEventListener('click', refreshMidiPorts);
+
+  // Load MIDI ports on startup
+  refreshMidiPorts();
 
   // Server control
   document.getElementById('startServer').addEventListener('click', startServer);
@@ -246,13 +290,14 @@ async function jumpToNextBar() {
 // Section management
 function addSection() {
   const sectionNumber = sections.length + 1;
+  // Use tempo from previous section, or default to 120
+  const previousTempo = sections.length > 0 ? sections[sections.length - 1].tempo : 120;
+  const previousTimeSignature = sections.length > 0 ? sections[sections.length - 1].timeSignature : { beats: 4, noteValue: 4 };
+
   sections.push({
     name: `Section ${sectionNumber}`,
-    tempo: 120,
-    timeSignature: {
-      beats: 4,
-      noteValue: 4
-    },
+    tempo: previousTempo,
+    timeSignature: { ...previousTimeSignature },
     bars: [{
       chords: '',
       redirect: null,
@@ -326,6 +371,8 @@ function renderSections() {
       <div class="bars-in-section">
         <div class="bars-in-section-controls">
           <button class="add-bar-to-section" data-section="${sectionIndex}">Add Bar</button>
+          <input type="number" class="add-bars-count" data-section="${sectionIndex}" value="4" min="1" max="100" style="width: 60px;">
+          <button class="add-multiple-bars" data-section="${sectionIndex}">Add Bars</button>
         </div>
         <div class="bars-container" data-section="${sectionIndex}"></div>
       </div>
@@ -432,6 +479,22 @@ function renderBarsForSection(sectionIndex) {
             <option value="sextuplet" ${bar.subdivision === 'sextuplet' ? 'selected' : ''}>Sextuplets</option>
           </select>
         </div>
+
+        <div class="advanced-field">
+          <label>OSC Trigger (send when bar starts):</label>
+          <input type="text"
+                 class="bar-osc-address"
+                 data-section="${sectionIndex}"
+                 data-bar="${barIndex}"
+                 value="${bar.oscAddress || ''}"
+                 placeholder="/trigger/play">
+          <input type="text"
+                 class="bar-osc-args"
+                 data-section="${sectionIndex}"
+                 data-bar="${barIndex}"
+                 value="${bar.oscArgs || ''}"
+                 placeholder="arguments (comma-separated)">
+        </div>
       </div>
     `;
 
@@ -510,6 +573,15 @@ function attachSectionEventListeners() {
     });
   });
 
+  document.querySelectorAll('.add-multiple-bars').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      const sectionIndex = parseInt(e.target.dataset.section);
+      const countInput = document.querySelector(`.add-bars-count[data-section="${sectionIndex}"]`);
+      const count = parseInt(countInput.value) || 1;
+      addBarsToSection(sectionIndex, count);
+    });
+  });
+
 
   // Bar chords - don't update server while typing
   document.querySelectorAll('.bar-chords').forEach(input => {
@@ -577,6 +649,25 @@ function attachSectionEventListeners() {
     });
   });
 
+  // OSC trigger fields
+  document.querySelectorAll('.bar-osc-address').forEach(input => {
+    input.addEventListener('input', (e) => {
+      const sectionIndex = parseInt(e.target.dataset.section);
+      const barIndex = parseInt(e.target.dataset.bar);
+      sections[sectionIndex].bars[barIndex].oscAddress = e.target.value;
+    });
+    input.addEventListener('blur', () => updateServerIfRunning());
+  });
+
+  document.querySelectorAll('.bar-osc-args').forEach(input => {
+    input.addEventListener('input', (e) => {
+      const sectionIndex = parseInt(e.target.dataset.section);
+      const barIndex = parseInt(e.target.dataset.bar);
+      sections[sectionIndex].bars[barIndex].oscArgs = e.target.value;
+    });
+    input.addEventListener('blur', () => updateServerIfRunning());
+  });
+
   // Delete section buttons
   document.querySelectorAll('.delete-section-btn').forEach(btn => {
     btn.addEventListener('click', (e) => {
@@ -605,6 +696,21 @@ function addBarToSection(sectionIndex) {
   });
   calculateTotalBars();
   renderSections(); // Re-render everything to update all redirect options
+  updateServerIfRunning();
+}
+
+function addBarsToSection(sectionIndex, count) {
+  for (let i = 0; i < count; i++) {
+    sections[sectionIndex].bars.push({
+      chords: '',
+      redirect: null,
+      accentPattern: [],
+      subdivision: 'none',
+      showAdvanced: false
+    });
+  }
+  calculateTotalBars();
+  renderSections();
   updateServerIfRunning();
 }
 
@@ -807,6 +913,42 @@ async function clearSetlist() {
     renderSetlist();
     updateSetlistControls();
     updateSongSelect();
+  }
+}
+
+async function saveSetlist() {
+  if (setlist.length === 0) {
+    await showAlert('No songs in setlist to save.');
+    return;
+  }
+
+  const setlistData = {
+    name: 'Setlist',
+    songs: setlist
+  };
+
+  const result = await ipcRenderer.invoke('save-setlist', setlistData);
+  if (result.success) {
+    await showAlert(`Setlist saved to ${result.filePath}`);
+  }
+}
+
+async function loadSetlist() {
+  const result = await ipcRenderer.invoke('load-setlist');
+
+  if (result.success) {
+    const data = result.data;
+    if (data.songs && Array.isArray(data.songs)) {
+      setlist = data.songs;
+      currentSongIndex = 0;
+      selectedSetlistIndex = -1;
+      renderSetlist();
+      updateSetlistControls();
+      updateSongSelect();
+      await showAlert(`Loaded setlist with ${setlist.length} songs!`);
+    } else {
+      await showAlert('Invalid setlist file format.');
+    }
   }
 }
 
@@ -1202,7 +1344,16 @@ async function startServer() {
   // Read current display settings from UI
   applyDisplaySettings();
 
-  const result = await ipcRenderer.invoke('start-server', { scoreData, displaySettings, repeatSong });
+  // Read current OSC settings from UI
+  oscSettings.enabled = document.getElementById('oscEnabled').checked;
+  oscSettings.host = document.getElementById('oscHost').value || '127.0.0.1';
+  oscSettings.port = parseInt(document.getElementById('oscPort').value) || 8000;
+
+  // Read current MIDI settings from UI
+  midiSettings.enabled = document.getElementById('midiEnabled').checked;
+  midiSettings.outputPort = document.getElementById('midiOutput').value;
+
+  const result = await ipcRenderer.invoke('start-server', { scoreData, displaySettings, repeatSong, oscSettings, midiSettings });
 
   if (result.success) {
     serverRunning = true;
@@ -1298,6 +1449,47 @@ function resetDisplaySettings() {
   // Send to server if running
   if (serverRunning) {
     ipcRenderer.invoke('update-display-settings', displaySettings);
+  }
+}
+
+// OSC functions
+async function updateOscSettings() {
+  if (serverRunning) {
+    await ipcRenderer.invoke('update-osc-settings', oscSettings);
+  }
+}
+
+async function testOscConnection() {
+  const result = await ipcRenderer.invoke('test-osc', oscSettings);
+  if (result.success) {
+    await showAlert('OSC test message sent! Check your OSC receiver.');
+  } else {
+    await showAlert(`OSC error: ${result.error}`);
+  }
+}
+
+// MIDI functions
+async function refreshMidiPorts() {
+  const result = await ipcRenderer.invoke('get-midi-ports');
+  const select = document.getElementById('midiOutput');
+  const currentValue = select.value;
+
+  select.innerHTML = '<option value="">Select MIDI output...</option>';
+
+  if (result.success && result.ports) {
+    result.ports.forEach(port => {
+      const option = document.createElement('option');
+      option.value = port;
+      option.textContent = port;
+      if (port === currentValue) option.selected = true;
+      select.appendChild(option);
+    });
+  }
+}
+
+async function updateMidiSettings() {
+  if (serverRunning) {
+    await ipcRenderer.invoke('update-midi-settings', midiSettings);
   }
 }
 

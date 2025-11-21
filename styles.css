@@ -667,6 +667,89 @@ button:disabled {
   width: 100%;
 }
 
+/* OSC settings grid */
+.osc-settings-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 15px;
+  align-items: center;
+}
+
+.osc-settings-grid input[type="text"],
+.osc-settings-grid input[type="number"] {
+  width: 100%;
+  padding: 8px 12px;
+  border: 2px solid #333;
+  border-radius: 5px;
+  background: #252525;
+  color: #e0e0e0;
+}
+
+.osc-settings-grid input[type="text"]:focus,
+.osc-settings-grid input[type="number"]:focus {
+  outline: none;
+  border-color: #b0b0b0;
+}
+
+/* OSC trigger fields in advanced section */
+.bar-osc-address,
+.bar-osc-args {
+  padding: 6px 10px;
+  border: 1px solid #444;
+  border-radius: 4px;
+  background: #252525;
+  color: #e0e0e0;
+  margin-right: 8px;
+  width: 180px;
+}
+
+.bar-osc-address:focus,
+.bar-osc-args:focus {
+  outline: none;
+  border-color: #b0b0b0;
+}
+
+/* MIDI settings grid */
+.midi-settings-grid {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 15px;
+  align-items: center;
+}
+
+.midi-settings-grid select {
+  padding: 8px 12px;
+  border: 2px solid #333;
+  border-radius: 5px;
+  background: #252525;
+  color: #e0e0e0;
+  flex: 1;
+}
+
+.midi-settings-grid select:focus {
+  outline: none;
+  border-color: #b0b0b0;
+}
+
+.midi-settings-grid .setting {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+#refreshMidiPorts {
+  padding: 8px 12px;
+  background: #333;
+  border: none;
+  border-radius: 5px;
+  color: #e0e0e0;
+  cursor: pointer;
+}
+
+#refreshMidiPorts:hover {
+  background: #444;
+}
+
 /* Advanced bar options */
 .bar-item-wrapper {
   margin-bottom: 8px;

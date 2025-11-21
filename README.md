@@ -6,9 +6,11 @@ A score-based visual metronome application with WebSocket synchronization for mu
 
 - **Score-based playback** - Define sections with different tempos and time signatures
 - **Multi-client sync** - Connect multiple devices via WebSocket for synchronized visual display
-- **Setlist management** - Create and manage setlists with multiple songs
+- **Setlist management** - Create, save, and load setlists with multiple songs
 - **Customizable display** - Configure colors for lights, progress bar, background, and text
 - **Loop and navigation** - Loop sections, jump to specific bars, and navigate through songs
+- **OSC support** - Send OSC messages to trigger external applications (e.g., backing tracks, lighting)
+- **MIDI clock output** - Sync DAWs and hardware with MIDI clock, start, stop, and continue messages
 
 ## Screenshots
 
@@ -74,6 +76,7 @@ Each section contains bars with:
 - **Advanced options** (click arrow to expand):
   - **Accent Pattern** - Select which beats to accent
   - **Subdivision** - Add subdivisions (8th notes, 16th notes, triplets, etc.)
+  - **OSC Trigger** - Send an OSC message when this bar starts (address and arguments)
 
 ##### Controls
 - **Add Section** - Add a new section with one bar
@@ -90,6 +93,8 @@ Each section contains bars with:
 
 #### Setlist
 - Click a song to select it
+- **Save Setlist** - Save the entire setlist to a file
+- **Load Setlist** - Load a previously saved setlist
 - **Move Up/Down** - Reorder songs in the setlist
 - **Clear Setlist** - Remove all songs
 - **Remove** - Remove individual songs
@@ -139,6 +144,47 @@ Customize the appearance of client displays:
 - **Chord Color** - Color of chord symbols
 
 Click **Apply Settings** to send changes to connected clients.
+
+#### OSC Settings
+Send OSC (Open Sound Control) messages to external applications when specific bars are reached.
+
+- **Enable OSC** - Turn OSC output on/off
+- **Target IP** - IP address of the OSC receiver (default: 127.0.0.1)
+- **Target Port** - Port number (default: 8000)
+- **Test OSC Connection** - Send a test message to verify connection
+
+##### Per-Bar OSC Triggers
+In the Score Editor, expand a bar's "Advanced" options to configure:
+- **OSC Address** - The OSC path to send (e.g., `/trigger/play`, `/backing/start`)
+- **Arguments** - Comma-separated values (e.g., `1, start, 0.5`)
+
+When playback reaches that bar, the OSC message is sent automatically.
+
+**Example use cases:**
+- Start a backing track at bar 1
+- Trigger lighting cues at specific bars
+- Send commands to QLab, Ableton Live, or other OSC-compatible software
+
+#### MIDI Clock Output
+Sync external DAWs and hardware devices with MIDI clock.
+
+- **Enable MIDI Clock** - Turn MIDI clock output on/off
+- **MIDI Output** - Select your MIDI output device
+- **Refresh (↻)** - Refresh the list of MIDI ports
+
+##### MIDI Messages Sent
+| Event | MIDI Message |
+|-------|--------------|
+| Play | Start (0xFA) |
+| Pause/Stop | Stop (0xFC) |
+| Resume | Continue (0xFB) |
+| During playback | Clock pulses (0xF8) at 24 PPQN |
+
+**Setup with virtual MIDI (Windows):**
+1. Install [loopMIDI](https://www.tobias-erichsen.de/software/loopmidi.html)
+2. Create a virtual MIDI port
+3. Select it in Visual Metronome
+4. In your DAW, set the same port as MIDI clock input
 
 ---
 
