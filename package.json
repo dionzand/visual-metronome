@@ -1,0 +1,44 @@
+{
+  "name": "metronome",
+  "version": "1.0.0",
+  "description": "Score-based visual metronome with WebSocket synchronization",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "build": "electron-builder --win",
+    "build:dir": "electron-builder --win --dir"
+  },
+  "keywords": ["metronome", "music", "score"],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "express": "^5.1.0",
+    "socket.io": "^4.8.1"
+  },
+  "devDependencies": {
+    "electron": "^33.2.0",
+    "electron-builder": "^25.1.8"
+  },
+  "build": {
+    "appId": "com.metronome.app",
+    "productName": "Visual Metronome",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "main.js",
+      "renderer.js",
+      "server.js",
+      "index.html",
+      "styles.css",
+      "public/**/*",
+      "node_modules/**/*"
+    ],
+    "win": {
+      "target": ["portable", "dir"],
+      "icon": null,
+      "signAndEditExecutable": false
+    }
+  }
+}

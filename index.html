@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Score-Based Metronome - Master Control</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="container">
+    <h1>Score-Based Visual Metronome</h1>
+
+    <!-- Tab Navigation -->
+    <div class="tab-navigation">
+      <button class="tab-button active" data-tab="score-editor">Score Editor</button>
+      <button class="tab-button" data-tab="setlist-manager">Setlist Manager</button>
+      <button class="tab-button" data-tab="playback-control">Playback Control</button>
+    </div>
+
+    <!-- SCORE EDITOR TAB -->
+    <div class="tab-content active" id="score-editor">
+      <div class="section">
+        <h2>Save/Load Score</h2>
+        <div class="file-controls">
+          <button id="saveScore">Save Score to File</button>
+          <button id="loadScore">Load Score from File</button>
+          <button id="importMusicXML">Import MusicXML</button>
+          <button id="newScore">New Score</button>
+        </div>
+      </div>
+
+      <div class="section">
+        <h2>Score Name</h2>
+        <input type="text" id="scoreName" class="score-name-input" placeholder="Enter score name..." value="Untitled Score">
+      </div>
+
+      <div class="section">
+        <h2>Playback Settings</h2>
+        <div class="settings-grid">
+          <div class="setting">
+            <label for="countoff">Countoff (bars):</label>
+            <input type="number" id="countoff" value="1" min="0" max="4">
+          </div>
+        </div>
+      </div>
+
+      <div class="section">
+        <h2>Sections</h2>
+        <div class="sections-controls">
+          <button id="addSection">Add Section</button>
+        </div>
+        <div id="sectionsContainer" class="sections-container"></div>
+      </div>
+    </div>
+
+    <!-- SETLIST MANAGER TAB -->
+    <div class="tab-content" id="setlist-manager">
+      <div class="section">
+        <h2>Add to Setlist</h2>
+        <p class="info-text">Add the current score to your setlist or load scores from files.</p>
+        <div class="setlist-add-controls">
+          <button id="addCurrentToSetlist">Add Current Score to Setlist</button>
+          <button id="loadScoreToSetlist">Load Score File to Setlist</button>
+        </div>
+      </div>
+
+      <div class="section">
+        <h2>Setlist</h2>
+        <div class="setlist-controls">
+          <button id="clearSetlist">Clear Setlist</button>
+          <button id="moveUp" disabled>Move Up</button>
+          <button id="moveDown" disabled>Move Down</button>
+        </div>
+        <div id="setlistContainer" class="setlist-container"></div>
+      </div>
+    </div>
+
+    <!-- PLAYBACK CONTROL TAB -->
+    <div class="tab-content" id="playback-control">
+      <div class="section">
+        <h2>Server Control</h2>
+        <div class="server-controls">
+          <button id="startServer">Start Server</button>
+          <button id="stopServer" disabled>Stop Server</button>
+          <div id="serverStatus" class="status">Server: Stopped</div>
+          <div id="connectedClients" class="status">Clients: 0</div>
+          <div id="serverUrl" class="url"></div>
+        </div>
+      </div>
+
+      <div class="section">
+        <h2>Song Selection</h2>
+        <div class="song-selection">
+          <label for="currentSongSelect">Current Song:</label>
+          <select id="currentSongSelect" disabled>
+            <option value="">No songs in setlist</option>
+          </select>
+          <div class="song-nav-buttons">
+            <button id="prevSong" disabled>← Previous</button>
+            <button id="nextSong" disabled>Next →</button>
+          </div>
+          <label class="checkbox-label">
+            <input type="checkbox" id="autoAdvance">
+            Auto-advance to next song
+          </label>
+          <div class="auto-advance-settings" id="autoAdvanceSettings" style="display: none;">
+            <div class="setting">
+              <label for="pauseBetweenSongs">Pause between songs (seconds):</label>
+              <input type="number" id="pauseBetweenSongs" value="3" min="0" max="30" step="1">
+            </div>
+          </div>
+          <label class="checkbox-label">
+            <input type="checkbox" id="repeatSong">
+            Repeat song (loop)
+          </label>
+        </div>
+      </div>
+
+      <div class="section">
+        <h2>Playback Control</h2>
+        <div class="tempo-percentage-control">
+          <label for="tempoPercentage">Tempo:</label>
+          <input type="range" id="tempoPercentage" min="25" max="150" value="100" step="5">
+          <span id="tempoPercentageDisplay">100%</span>
+          <button id="resetTempoPercentage">Reset</button>
+        </div>
+        <div class="playback-controls">
+          <button id="play" disabled>Play</button>
+          <button id="pause" disabled>Pause</button>
+          <button id="stop" disabled>Stop</button>
+        </div>
+        <div class="keyboard-shortcuts-hint">
+          Shortcuts: Space (Play/Pause) | S (Stop) | ← → (Prev/Next Song) | ↑ ↓ (Prev/Next Bar)
+        </div>
+      </div>
+
+      <div class="section">
+        <h2>Loop Section</h2>
+        <div class="loop-controls-grid">
+          <div class="setting">
+            <label for="loopStart">Start Bar:</label>
+            <input type="number" id="loopStart" placeholder="Start bar" min="1">
+          </div>
+          <div class="setting">
+            <label for="loopEnd">End Bar:</label>
+            <input type="number" id="loopEnd" placeholder="End bar" min="1">
+          </div>
+          <div class="loop-buttons">
+            <button id="enableLoop">Enable Loop</button>
+            <button id="disableLoop">Disable Loop</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="section">
+        <h2>Navigation</h2>
+        <div class="jump-controls">
+          <label for="jumpToBar">Jump to Bar:</label>
+          <input type="number" id="jumpToBar" placeholder="Bar #" min="1">
+          <button id="jumpBtn">Jump</button>
+        </div>
+      </div>
+
+      <div class="section">
+        <h2>Client Display Settings</h2>
+        <div class="display-settings-grid">
+          <div class="setting">
+            <label for="lightColor">Light Color:</label>
+            <input type="color" id="lightColor" value="#ff0000">
+          </div>
+          <div class="setting">
+            <label for="progressBarColor">Progress Bar Color:</label>
+            <input type="color" id="progressBarColor" value="#ff0000">
+          </div>
+          <div class="setting">
+            <label for="progressBarWidth">Progress Bar Width:</label>
+            <input type="range" id="progressBarWidth" min="2" max="20" value="4">
+            <span id="progressBarWidthDisplay">4px</span>
+          </div>
+          <div class="setting">
+            <label for="backgroundColor">Background Color:</label>
+            <input type="color" id="backgroundColor" value="#000000">
+          </div>
+          <div class="setting">
+            <label for="textColor">Text Color:</label>
+            <input type="color" id="textColor" value="#ffffff">
+          </div>
+          <div class="setting">
+            <label for="chordColor">Chord Color:</label>
+            <input type="color" id="chordColor" value="#ffcc00">
+          </div>
+        </div>
+        <button id="applyDisplaySettings" style="margin-top: 15px;">Apply Settings</button>
+        <button id="resetDisplaySettings" style="margin-top: 15px;">Reset to Defaults</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="renderer.js"></script>
+</body>
+</html>
