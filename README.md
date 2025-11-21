@@ -10,6 +10,22 @@ A score-based visual metronome application with WebSocket synchronization for mu
 - **Customizable display** - Configure colors for lights, progress bar, background, and text
 - **Loop and navigation** - Loop sections, jump to specific bars, and navigate through songs
 
+## Screenshots
+
+### Score Editor
+![Score Editor](screenshots/score_editor1.png)
+![Score Editor - Sections](screenshots/score_editor2.png)
+
+### Setlist Manager
+![Setlist Manager](screenshots/setlist_manager.png)
+
+### Playback Control
+![Server Control](screenshots/server_control.png)
+![Playback Control](screenshots/playback_control.png)
+
+### Client Display Settings
+![Client Settings](screenshots/client_settings.png)
+
 ## Installation
 
 ### From Executable
