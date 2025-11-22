@@ -34,7 +34,7 @@ A score-based visual metronome application with WebSocket synchronization for mu
 ## Installation
 
 ### From Executable
-1. Download `Visual Metronome 1.0.0.exe` from the `dist` folder
+1. Download `Visual Metronome 1.1.0.exe` from the [`Releases`](https://github.com/dionzand/visual-metronome/releases) folder
 2. Double-click to run (Windows may show a SmartScreen warning - click "More info" → "Run anyway")
 
 ### From Source
