@@ -28,6 +28,9 @@ A score-based visual metronome application with WebSocket synchronization for mu
 ### Client Display Settings
 ![Client Settings](screenshots/client_settings.png)
 
+### Client Display
+![Client Settings](screenshots/client_display.png)
+
 ## Installation
 
 ### From Executable
