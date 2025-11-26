@@ -596,14 +596,12 @@ function renderBarsForSection(sectionIndex) {
             </label>
             <div>
               <label style="font-size: 0.9em;">Ending #:</label>
-              <input type="number"
+              <input type="text"
                      class="bar-volta"
                      data-section="${sectionIndex}"
                      data-bar="${barIndex}"
-                     value="${bar.volta || ''}"
-                     placeholder="1, 2, 3..."
-                     min="1"
-                     max="9"
+                     value="${bar.volta ? (Array.isArray(bar.volta) ? bar.volta.join(',') : bar.volta) : ''}"
+                     placeholder="1,2 or 1,2,3"
                      style="width: 100%; padding: 6px 10px; background: #252525; color: #e0e0e0; border: 1px solid #444; border-radius: 4px;">
             </div>
           </div>
@@ -933,13 +931,25 @@ function attachSectionEventListeners() {
     });
   });
 
-  // Volta/Ending number
+  // Volta/Ending number (supports comma-separated values like "1,2,3")
   document.querySelectorAll('.bar-volta').forEach(input => {
     input.addEventListener('input', (e) => {
       const sectionIndex = parseInt(e.target.dataset.section);
       const barIndex = parseInt(e.target.dataset.bar);
-      const value = parseInt(e.target.value);
-      sections[sectionIndex].bars[barIndex].volta = value > 0 ? value : null;
+      const inputValue = e.target.value.trim();
+
+      if (!inputValue) {
+        sections[sectionIndex].bars[barIndex].volta = null;
+        return;
+      }
+
+      // Parse comma-separated values
+      const voltaNumbers = inputValue
+        .split(',')
+        .map(v => parseInt(v.trim()))
+        .filter(v => !isNaN(v) && v > 0);
+
+      sections[sectionIndex].bars[barIndex].volta = voltaNumbers.length > 0 ? voltaNumbers : null;
     });
     input.addEventListener('blur', () => updateServerIfRunning());
   });

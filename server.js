@@ -733,8 +733,27 @@ class MetronomeServer {
     // If bar has no volta, don't skip it
     if (!barInfo.volta) return false;
 
-    // Skip this bar if its volta number doesn't match current pass
-    return barInfo.volta !== this.currentPassNumber;
+    // Handle both array and single number (backwards compatibility)
+    const voltaArray = Array.isArray(barInfo.volta) ? barInfo.volta : [barInfo.volta];
+
+    // Skip this bar if currentPassNumber is NOT in the volta array
+    return !voltaArray.includes(this.currentPassNumber);
+  }
+
+  getMaxVoltaInRepeatSection(startBarIndex, endBarIndex) {
+    // Find the highest volta number in the repeat section
+    let maxVolta = 1;
+
+    for (let i = startBarIndex; i <= endBarIndex; i++) {
+      const bar = this.flatBars[i];
+      if (bar && bar.volta) {
+        const voltaArray = Array.isArray(bar.volta) ? bar.volta : [bar.volta];
+        const maxInBar = Math.max(...voltaArray);
+        maxVolta = Math.max(maxVolta, maxInBar);
+      }
+    }
+
+    return maxVolta;
   }
 
   findSegnoBar() {
@@ -863,8 +882,9 @@ class MetronomeServer {
       if (existingRepeat) {
         existingRepeat.timesPlayed++;
 
-        // For now, repeat once (can be made configurable later)
-        const maxRepeats = 2;
+        // Calculate max repeats based on highest volta number in the section
+        const maxVoltaNumber = this.getMaxVoltaInRepeatSection(startRepeatBar - 1, currentAbsoluteBar - 1);
+        const maxRepeats = maxVoltaNumber > 1 ? maxVoltaNumber : 2; // Default to 2 if no voltas
 
         if (existingRepeat.timesPlayed < maxRepeats) {
           // Repeat again - increment pass number and jump back
