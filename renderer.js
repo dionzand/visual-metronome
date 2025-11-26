@@ -331,7 +331,10 @@ function addSection() {
       fermataDurationType: 'beats',
       accentPattern: [],
       subdivision: 'none',
-      showAdvanced: false
+      showAdvanced: false,
+      startRepeat: false,
+      endRepeat: false,
+      volta: null
     }]
   });
   renderSections();
@@ -564,6 +567,40 @@ function renderBarsForSection(sectionIndex) {
             <option value="quintuplet" ${bar.subdivision === 'quintuplet' ? 'selected' : ''}>Quintuplets</option>
             <option value="sextuplet" ${bar.subdivision === 'sextuplet' ? 'selected' : ''}>Sextuplets</option>
           </select>
+        </div>
+
+        <div class="advanced-field" style="border-top: 1px solid #444; padding-top: 10px; margin-top: 10px;">
+          <label style="font-weight: 600; margin-bottom: 8px; display: block;">Repeat/Volta Markers:</label>
+          <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px;">
+            <label class="checkbox-label">
+              <input type="checkbox"
+                     class="bar-start-repeat"
+                     data-section="${sectionIndex}"
+                     data-bar="${barIndex}"
+                     ${bar.startRepeat ? 'checked' : ''}>
+              Start Repeat |:
+            </label>
+            <label class="checkbox-label">
+              <input type="checkbox"
+                     class="bar-end-repeat"
+                     data-section="${sectionIndex}"
+                     data-bar="${barIndex}"
+                     ${bar.endRepeat ? 'checked' : ''}>
+              End Repeat :|
+            </label>
+            <div>
+              <label style="font-size: 0.9em;">Ending #:</label>
+              <input type="number"
+                     class="bar-volta"
+                     data-section="${sectionIndex}"
+                     data-bar="${barIndex}"
+                     value="${bar.volta || ''}"
+                     placeholder="1, 2, 3..."
+                     min="1"
+                     max="9"
+                     style="width: 100%; padding: 6px 10px; background: #252525; color: #e0e0e0; border: 1px solid #444; border-radius: 4px;">
+            </div>
+          </div>
         </div>
 
         <div class="advanced-field">
@@ -816,6 +853,37 @@ function attachSectionEventListeners() {
     });
   });
 
+  // Start Repeat checkbox
+  document.querySelectorAll('.bar-start-repeat').forEach(checkbox => {
+    checkbox.addEventListener('change', (e) => {
+      const sectionIndex = parseInt(e.target.dataset.section);
+      const barIndex = parseInt(e.target.dataset.bar);
+      sections[sectionIndex].bars[barIndex].startRepeat = e.target.checked;
+      updateServerIfRunning();
+    });
+  });
+
+  // End Repeat checkbox
+  document.querySelectorAll('.bar-end-repeat').forEach(checkbox => {
+    checkbox.addEventListener('change', (e) => {
+      const sectionIndex = parseInt(e.target.dataset.section);
+      const barIndex = parseInt(e.target.dataset.bar);
+      sections[sectionIndex].bars[barIndex].endRepeat = e.target.checked;
+      updateServerIfRunning();
+    });
+  });
+
+  // Volta/Ending number
+  document.querySelectorAll('.bar-volta').forEach(input => {
+    input.addEventListener('input', (e) => {
+      const sectionIndex = parseInt(e.target.dataset.section);
+      const barIndex = parseInt(e.target.dataset.bar);
+      const value = parseInt(e.target.value);
+      sections[sectionIndex].bars[barIndex].volta = value > 0 ? value : null;
+    });
+    input.addEventListener('blur', () => updateServerIfRunning());
+  });
+
   // OSC trigger fields
   document.querySelectorAll('.bar-osc-address').forEach(input => {
     input.addEventListener('input', (e) => {
@@ -863,7 +931,10 @@ function addBarToSection(sectionIndex) {
     fermataDurationType: 'beats',
     accentPattern: [],
     subdivision: 'none',
-    showAdvanced: false
+    showAdvanced: false,
+    startRepeat: false,
+    endRepeat: false,
+    volta: null
   });
   calculateTotalBars();
   renderSections(); // Re-render everything to update all redirect options
@@ -882,7 +953,10 @@ function addBarsToSection(sectionIndex, count) {
       fermataDurationType: 'beats',
       accentPattern: [],
       subdivision: 'none',
-      showAdvanced: false
+      showAdvanced: false,
+      startRepeat: false,
+      endRepeat: false,
+      volta: null
     });
   }
   calculateTotalBars();

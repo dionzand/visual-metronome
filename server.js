@@ -60,6 +60,10 @@ class MetronomeServer {
     // Sync offset for manual timing adjustment
     this.syncOffset = 0; // milliseconds
 
+    // Repeat/volta tracking
+    this.repeatStack = []; // Stack of {startBar, timesPlayed, endBar}
+    this.currentPassNumber = 1; // Which pass through the repeat (1, 2, 3...)
+
     // Loop current bar setting
     this.loopCurrentBarEnabled = false;
     this.loopCurrentBarNumber = null;
@@ -98,6 +102,9 @@ class MetronomeServer {
           fermataDurationType: bar.fermataDurationType || 'beats',
           accentPattern: bar.accentPattern || [],
           subdivision: bar.subdivision || 'none',
+          startRepeat: bar.startRepeat || false,
+          endRepeat: bar.endRepeat || false,
+          volta: bar.volta || null,
           oscAddress: bar.oscAddress || null,
           oscArgs: bar.oscArgs || null
         });
@@ -475,6 +482,8 @@ class MetronomeServer {
     this.syncOffset = 0; // Reset sync offset
     this.loopCurrentBarEnabled = false; // Disable loop current bar
     this.loopCurrentBarNumber = null;
+    this.repeatStack = []; // Reset repeat tracking
+    this.currentPassNumber = 1;
 
     if (this.updateInterval) {
       clearInterval(this.updateInterval);
@@ -697,6 +706,25 @@ class MetronomeServer {
     }, updateRate);
   }
 
+  findMatchingStartRepeat(endBarIndex) {
+    // Search backwards from endBarIndex to find matching start repeat
+    for (let i = endBarIndex - 1; i >= 0; i--) {
+      if (this.flatBars[i].startRepeat) {
+        return i + 1; // Return 1-indexed bar number
+      }
+    }
+    // If no start repeat found, return bar 1
+    return 1;
+  }
+
+  shouldSkipBarDueToVolta(barInfo) {
+    // If bar has no volta, don't skip it
+    if (!barInfo.volta) return false;
+
+    // Skip this bar if its volta number doesn't match current pass
+    return barInfo.volta !== this.currentPassNumber;
+  }
+
   advanceToNextBar() {
     // Check for loop current bar (highest priority)
     if (this.loopCurrentBarEnabled && this.loopCurrentBarNumber && !this.inCountoff) {
@@ -750,6 +778,39 @@ class MetronomeServer {
       }
     }
 
+    // Check for end repeat
+    if (currentBarInfo && currentBarInfo.endRepeat) {
+      const startRepeatBar = this.findMatchingStartRepeat(currentAbsoluteBar - 1);
+
+      // Check if we're already in this repeat
+      const existingRepeat = this.repeatStack.find(r => r.startBar === startRepeatBar);
+
+      if (existingRepeat) {
+        existingRepeat.timesPlayed++;
+
+        // For now, repeat once (can be made configurable later)
+        const maxRepeats = 2;
+
+        if (existingRepeat.timesPlayed < maxRepeats) {
+          // Repeat again - increment pass number and jump back
+          this.currentPassNumber++;
+          this.seekToBar(startRepeatBar);
+          return;
+        } else {
+          // Done repeating - remove from stack and reset pass number
+          this.repeatStack = this.repeatStack.filter(r => r.startBar !== startRepeatBar);
+          this.currentPassNumber = 1;
+          // Fall through to continue to next bar
+        }
+      } else {
+        // First time encountering this repeat
+        this.repeatStack.push({ startBar: startRepeatBar, timesPlayed: 1, endBar: currentAbsoluteBar });
+        this.currentPassNumber = 2; // Next pass
+        this.seekToBar(startRepeatBar);
+        return;
+      }
+    }
+
     // Check for loop
     if (this.loopEnabled && this.loopEnd && currentAbsoluteBar >= this.loopEnd) {
       this.lastTriggeredBar = -1; // Reset OSC tracking so triggers fire again on loop
@@ -786,6 +847,35 @@ class MetronomeServer {
           return;
         }
       }
+    }
+
+    // Skip bars based on volta brackets
+    // Keep advancing while the current bar should be skipped
+    let safetyCounter = 0;
+    while (safetyCounter < 100) { // Prevent infinite loops
+      const nextAbsoluteBar = this.getAbsoluteBarNumber();
+      const nextBarInfo = this.flatBars[nextAbsoluteBar - 1];
+
+      if (!nextBarInfo || !this.shouldSkipBarDueToVolta(nextBarInfo)) {
+        break; // Found a bar we shouldn't skip
+      }
+
+      // Skip this bar - advance again
+      const section = this.scoreData.sections[this.currentSectionIndex];
+      if (this.currentBarInSection + 1 < section.bars.length) {
+        this.currentBarInSection++;
+      } else {
+        // Move to next section
+        if (this.currentSectionIndex + 1 < this.scoreData.sections.length) {
+          this.currentSectionIndex++;
+          this.currentBarInSection = 0;
+        } else {
+          // End of song while skipping
+          break;
+        }
+      }
+
+      safetyCounter++;
     }
 
     this.currentBeat = 0;
