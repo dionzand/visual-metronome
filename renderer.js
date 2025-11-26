@@ -31,6 +31,7 @@ let repeatSong = false;
 let loopEnabled = false;
 let loopStart = null;
 let loopEnd = null;
+let loopCurrentBarEnabled = false;
 let tapTimes = {};
 let totalBars = 0;
 let scoreName = 'Untitled Score';
@@ -39,10 +40,11 @@ let tempoPercentage = 100;
 
 // Display settings
 let displaySettings = {
-  lightColor: '#ff0000',
-  progressBarColor: '#ff0000',
+  lightColor: '#ffffff',
+  progressBarColor: '#ffffff',
   progressBarWidth: 4,
   backgroundColor: '#000000',
+  backgroundFlashColor: '#808080',
   textColor: '#ffffff',
   chordColor: '#ffcc00'
 };
@@ -192,8 +194,18 @@ function setupEventListeners() {
   document.getElementById('play').addEventListener('click', play);
   document.getElementById('pause').addEventListener('click', pause);
   document.getElementById('stop').addEventListener('click', stop);
+  document.getElementById('loopCurrentBar').addEventListener('click', toggleLoopCurrentBar);
   document.getElementById('prevSong').addEventListener('click', previousSong);
   document.getElementById('nextSong').addEventListener('click', nextSong);
+
+  // Manual sync controls
+  document.getElementById('syncMinus50').addEventListener('click', () => adjustSyncOffset(-50));
+  document.getElementById('syncMinus10').addEventListener('click', () => adjustSyncOffset(-10));
+  document.getElementById('syncPlus10').addEventListener('click', () => adjustSyncOffset(10));
+  document.getElementById('syncPlus50').addEventListener('click', () => adjustSyncOffset(50));
+  document.getElementById('syncMinusBeat').addEventListener('click', () => adjustSyncByBeat(-1));
+  document.getElementById('syncPlusBeat').addEventListener('click', () => adjustSyncByBeat(1));
+  document.getElementById('syncReset').addEventListener('click', resetSyncOffset);
 }
 
 function switchTab(tabName) {
@@ -256,6 +268,11 @@ function setupKeyboardShortcuts() {
         e.preventDefault();
         jumpToNextBar();
         break;
+      case 'l':
+      case 'L':
+        e.preventDefault();
+        toggleLoopCurrentBar();
+        break;
     }
   }, false); // Use bubble phase, not capture
 }
@@ -274,17 +291,23 @@ async function togglePlayPause() {
 }
 
 async function jumpToPreviousBar() {
-  const jumpInput = document.getElementById('jumpToBar');
-  const current = parseInt(jumpInput.value) || 1;
-  jumpInput.value = Math.max(1, current - 1);
-  await jumpToBar();
+  if (!serverRunning) return;
+
+  const currentAbsoluteBar = await ipcRenderer.invoke('get-current-bar');
+  const targetBar = Math.max(1, currentAbsoluteBar - 1);
+
+  // Use direct jump for keyboard shortcuts
+  await ipcRenderer.invoke('seek-to-bar', { barNumber: targetBar, mode: 'direct' });
 }
 
 async function jumpToNextBar() {
-  const jumpInput = document.getElementById('jumpToBar');
-  const current = parseInt(jumpInput.value) || 1;
-  jumpInput.value = Math.min(totalBars, current + 1);
-  await jumpToBar();
+  if (!serverRunning) return;
+
+  const currentAbsoluteBar = await ipcRenderer.invoke('get-current-bar');
+  const targetBar = Math.min(totalBars, currentAbsoluteBar + 1);
+
+  // Use direct jump for keyboard shortcuts
+  await ipcRenderer.invoke('seek-to-bar', { barNumber: targetBar, mode: 'direct' });
 }
 
 // Section management
@@ -298,9 +321,14 @@ function addSection() {
     name: `Section ${sectionNumber}`,
     tempo: previousTempo,
     timeSignature: { ...previousTimeSignature },
+    tempoTransitionBars: 0,
     bars: [{
       chords: '',
       redirect: null,
+      redirectCount: 1,
+      isFermata: false,
+      fermataDuration: 4,
+      fermataDurationType: 'beats',
       accentPattern: [],
       subdivision: 'none',
       showAdvanced: false
@@ -360,6 +388,17 @@ function renderSections() {
               <option value="16" ${section.timeSignature.noteValue === 16 ? 'selected' : ''}>16</option>
             </select>
           </div>
+        </div>
+
+        <div class="section-field" title="Transition happens in the PREVIOUS section's last X bars. Number of bars to gradually transition from previous tempo to this section's tempo">
+          <label>Tempo Transition (bars):</label>
+          <input type="number"
+                 class="section-tempo-transition"
+                 data-section="${sectionIndex}"
+                 value="${section.tempoTransitionBars || 0}"
+                 min="0"
+                 max="${sectionIndex > 0 ? sections[sectionIndex - 1].bars.length : 0}"
+                 ${sectionIndex === 0 ? 'disabled' : ''}>
         </div>
 
         <div class="section-field">
@@ -450,6 +489,18 @@ function renderBarsForSection(sectionIndex) {
         </div>
 
         <div class="bar-field">
+          <label>Times to redirect:</label>
+          <input type="number"
+                 class="bar-redirect-count"
+                 data-section="${sectionIndex}"
+                 data-bar="${barIndex}"
+                 value="${bar.redirectCount || 1}"
+                 min="1"
+                 max="99"
+                 ${!bar.redirect ? 'disabled' : ''}>
+        </div>
+
+        <div class="bar-field">
           <div class="toggle-advanced" data-section="${sectionIndex}" data-bar="${barIndex}">
             <span class="triangle">${bar.showAdvanced ? '▼' : '▶'}</span> Advanced
           </div>
@@ -462,13 +513,48 @@ function renderBarsForSection(sectionIndex) {
 
       <div class="bar-advanced ${bar.showAdvanced ? 'show' : ''}" data-section="${sectionIndex}" data-bar="${barIndex}">
         <div class="advanced-field">
+          <label class="checkbox-label" style="display: inline-flex; padding: 8px 0;">
+            <input type="checkbox"
+                   class="bar-is-fermata"
+                   data-section="${sectionIndex}"
+                   data-bar="${barIndex}"
+                   ${bar.isFermata ? 'checked' : ''}>
+            Fermata bar (hold for duration)
+          </label>
+        </div>
+
+        <div class="advanced-field fermata-settings" style="display: ${bar.isFermata ? 'grid' : 'none'}; grid-template-columns: 1fr 1fr; gap: 10px;">
+          <div>
+            <label>Fermata Duration:</label>
+            <input type="number"
+                   class="bar-fermata-duration"
+                   data-section="${sectionIndex}"
+                   data-bar="${barIndex}"
+                   value="${bar.fermataDuration || 4}"
+                   min="0.5"
+                   step="0.5"
+                   style="width: 100%; padding: 6px 10px; background: #252525; color: #e0e0e0; border: 1px solid #444; border-radius: 4px;">
+          </div>
+          <div>
+            <label>Duration Type:</label>
+            <select class="bar-fermata-duration-type"
+                    data-section="${sectionIndex}"
+                    data-bar="${barIndex}"
+                    style="width: 100%; padding: 6px 10px; background: #252525; color: #e0e0e0; border: 1px solid #444; border-radius: 4px;">
+              <option value="beats" ${!bar.fermataDurationType || bar.fermataDurationType === 'beats' ? 'selected' : ''}>Beats</option>
+              <option value="seconds" ${bar.fermataDurationType === 'seconds' ? 'selected' : ''}>Seconds</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="advanced-field" style="display: ${bar.isFermata ? 'none' : 'block'};">
           <label>Accent Pattern (check beats to accent):</label>
           <div class="accent-pattern">
             ${accentCheckboxes.join('')}
           </div>
         </div>
 
-        <div class="advanced-field">
+        <div class="advanced-field" style="display: ${bar.isFermata ? 'none' : 'block'};">
           <label>Subdivision:</label>
           <select class="bar-subdivision" data-section="${sectionIndex}" data-bar="${barIndex}">
             <option value="none" ${!bar.subdivision || bar.subdivision === 'none' ? 'selected' : ''}>None</option>
@@ -557,6 +643,37 @@ function attachSectionEventListeners() {
     });
   });
 
+  // Section tempo transition
+  document.querySelectorAll('.section-tempo-transition').forEach(input => {
+    input.addEventListener('input', (e) => {
+      const sectionIndex = parseInt(e.target.dataset.section);
+      let value = parseInt(e.target.value) || 0;
+
+      // Validate: transition happens in PREVIOUS section, so check previous section's bar count
+      if (sectionIndex > 0) {
+        const previousSection = sections[sectionIndex - 1];
+        const maxTransitionBars = previousSection.bars.length;
+
+        // Update max attribute
+        e.target.max = maxTransitionBars;
+
+        // Clamp value
+        if (value > maxTransitionBars) {
+          value = maxTransitionBars;
+          e.target.value = value;
+        }
+      }
+
+      sections[sectionIndex].tempoTransitionBars = value;
+    });
+    input.addEventListener('blur', (e) => {
+      updateServerIfRunning();
+    });
+  });
+
+  // Update tempo transition max values based on previous section bar counts
+  updateTempoTransitionMaxValues();
+
   // Tap tempo buttons per section
   document.querySelectorAll('.tap-tempo-btn').forEach(btn => {
     btn.addEventListener('click', (e) => {
@@ -602,6 +719,25 @@ function attachSectionEventListeners() {
       const sectionIndex = parseInt(e.target.dataset.section);
       const barIndex = parseInt(e.target.dataset.bar);
       sections[sectionIndex].bars[barIndex].redirect = e.target.value ? parseInt(e.target.value) : null;
+
+      // Enable/disable redirect count input
+      const countInput = document.querySelector(`.bar-redirect-count[data-section="${sectionIndex}"][data-bar="${barIndex}"]`);
+      if (countInput) {
+        countInput.disabled = !e.target.value;
+      }
+
+      updateServerIfRunning();
+    });
+  });
+
+  // Bar redirect count
+  document.querySelectorAll('.bar-redirect-count').forEach(input => {
+    input.addEventListener('input', (e) => {
+      const sectionIndex = parseInt(e.target.dataset.section);
+      const barIndex = parseInt(e.target.dataset.bar);
+      sections[sectionIndex].bars[barIndex].redirectCount = parseInt(e.target.value) || 1;
+    });
+    input.addEventListener('blur', (e) => {
       updateServerIfRunning();
     });
   });
@@ -649,6 +785,37 @@ function attachSectionEventListeners() {
     });
   });
 
+  // Fermata checkbox
+  document.querySelectorAll('.bar-is-fermata').forEach(checkbox => {
+    checkbox.addEventListener('change', (e) => {
+      const sectionIndex = parseInt(e.target.dataset.section);
+      const barIndex = parseInt(e.target.dataset.bar);
+      sections[sectionIndex].bars[barIndex].isFermata = e.target.checked;
+      renderSections(); // Re-render to show/hide fermata settings
+      updateServerIfRunning();
+    });
+  });
+
+  // Fermata duration
+  document.querySelectorAll('.bar-fermata-duration').forEach(input => {
+    input.addEventListener('input', (e) => {
+      const sectionIndex = parseInt(e.target.dataset.section);
+      const barIndex = parseInt(e.target.dataset.bar);
+      sections[sectionIndex].bars[barIndex].fermataDuration = parseFloat(e.target.value) || 4;
+    });
+    input.addEventListener('blur', () => updateServerIfRunning());
+  });
+
+  // Fermata duration type
+  document.querySelectorAll('.bar-fermata-duration-type').forEach(select => {
+    select.addEventListener('change', (e) => {
+      const sectionIndex = parseInt(e.target.dataset.section);
+      const barIndex = parseInt(e.target.dataset.bar);
+      sections[sectionIndex].bars[barIndex].fermataDurationType = e.target.value;
+      updateServerIfRunning();
+    });
+  });
+
   // OSC trigger fields
   document.querySelectorAll('.bar-osc-address').forEach(input => {
     input.addEventListener('input', (e) => {
@@ -690,12 +857,17 @@ function addBarToSection(sectionIndex) {
   sections[sectionIndex].bars.push({
     chords: '',
     redirect: null,
+    redirectCount: 1,
+    isFermata: false,
+    fermataDuration: 4,
+    fermataDurationType: 'beats',
     accentPattern: [],
     subdivision: 'none',
     showAdvanced: false
   });
   calculateTotalBars();
   renderSections(); // Re-render everything to update all redirect options
+  updateTempoTransitionMaxValues(); // Update max values for tempo transitions
   updateServerIfRunning();
 }
 
@@ -704,6 +876,10 @@ function addBarsToSection(sectionIndex, count) {
     sections[sectionIndex].bars.push({
       chords: '',
       redirect: null,
+      redirectCount: 1,
+      isFermata: false,
+      fermataDuration: 4,
+      fermataDurationType: 'beats',
       accentPattern: [],
       subdivision: 'none',
       showAdvanced: false
@@ -711,6 +887,7 @@ function addBarsToSection(sectionIndex, count) {
   }
   calculateTotalBars();
   renderSections();
+  updateTempoTransitionMaxValues(); // Update max values for tempo transitions
   updateServerIfRunning();
 }
 
@@ -728,6 +905,7 @@ async function deleteBar(sectionIndex, barIndex) {
   sections[sectionIndex].bars.splice(barIndex, 1);
   calculateTotalBars();
   renderSections();
+  updateTempoTransitionMaxValues(); // Update max values for tempo transitions
   updateServerIfRunning();
 }
 
@@ -744,12 +922,35 @@ async function deleteSection(sectionIndex) {
     sections.splice(sectionIndex, 1);
     calculateTotalBars();
     renderSections();
+    updateTempoTransitionMaxValues(); // Update max values for tempo transitions
     updateServerIfRunning();
   }
 }
 
 function calculateTotalBars() {
   totalBars = sections.reduce((sum, section) => sum + section.bars.length, 0);
+}
+
+function updateTempoTransitionMaxValues() {
+  // Update max values for tempo transition inputs based on previous section bar counts
+  document.querySelectorAll('.section-tempo-transition').forEach(input => {
+    const sectionIndex = parseInt(input.dataset.section);
+
+    if (sectionIndex > 0) {
+      const previousSection = sections[sectionIndex - 1];
+      const maxTransitionBars = previousSection.bars.length;
+
+      // Update max attribute
+      input.max = maxTransitionBars;
+
+      // Clamp current value if it exceeds the max
+      const currentValue = parseInt(input.value) || 0;
+      if (currentValue > maxTransitionBars) {
+        input.value = maxTransitionBars;
+        sections[sectionIndex].tempoTransitionBars = maxTransitionBars;
+      }
+    }
+  });
 }
 
 // Tap tempo per section
@@ -839,7 +1040,10 @@ async function jumpToBar() {
     return;
   }
 
-  await ipcRenderer.invoke('seek-to-bar', barNumber);
+  // Get selected jump mode
+  const jumpMode = document.querySelector('input[name="jumpMode"]:checked').value;
+
+  await ipcRenderer.invoke('seek-to-bar', { barNumber, mode: jumpMode });
 }
 
 // Setlist management
@@ -1293,6 +1497,10 @@ async function importMusicXML() {
           currentSection.bars.push({
             chords: chords,
             redirect: null,
+            redirectCount: 1,
+            isFermata: false,
+            fermataDuration: 4,
+            fermataDurationType: 'beats',
             accentPattern: [],
             subdivision: 'none',
             showAdvanced: false
@@ -1365,6 +1573,7 @@ async function startServer() {
     document.getElementById('play').disabled = false;
     document.getElementById('pause').disabled = false;
     document.getElementById('stop').disabled = false;
+    document.getElementById('loopCurrentBar').disabled = false;
     updateSetlistControls();
     updateSongSelect();
 
@@ -1379,11 +1588,15 @@ async function stopServer() {
   document.getElementById('serverStatus').classList.remove('running');
   document.getElementById('serverUrl').textContent = '';
   document.getElementById('connectedClients').textContent = 'Clients: 0';
+  document.getElementById('syncOffsetDisplay').textContent = '0 ms';
   document.getElementById('startServer').disabled = false;
   document.getElementById('stopServer').disabled = true;
   document.getElementById('play').disabled = true;
   document.getElementById('pause').disabled = true;
   document.getElementById('stop').disabled = true;
+  document.getElementById('loopCurrentBar').disabled = true;
+  loopCurrentBarEnabled = false;
+  updateLoopCurrentBarButton();
   updateSetlistControls();
   updateSongSelect();
 }
@@ -1407,6 +1620,41 @@ async function stop() {
   const result = await ipcRenderer.invoke('stop-metronome');
   if (!result.success) {
     await showAlert(result.error);
+  } else {
+    // Reset sync offset display when stopping
+    document.getElementById('syncOffsetDisplay').textContent = '0 ms';
+    // Disable loop current bar when stopping
+    if (loopCurrentBarEnabled) {
+      loopCurrentBarEnabled = false;
+      updateLoopCurrentBarButton();
+    }
+  }
+}
+
+async function toggleLoopCurrentBar() {
+  if (!serverRunning) return;
+
+  loopCurrentBarEnabled = !loopCurrentBarEnabled;
+  const result = await ipcRenderer.invoke('toggle-loop-current-bar', loopCurrentBarEnabled);
+
+  if (!result.success) {
+    await showAlert(result.error);
+    loopCurrentBarEnabled = !loopCurrentBarEnabled; // Revert on error
+  }
+
+  updateLoopCurrentBarButton();
+}
+
+function updateLoopCurrentBarButton() {
+  const button = document.getElementById('loopCurrentBar');
+  if (loopCurrentBarEnabled) {
+    button.style.background = '#28a745';
+    button.style.color = 'white';
+    button.textContent = '◉ Looping Current Bar';
+  } else {
+    button.style.background = '#6c757d';
+    button.style.color = 'white';
+    button.textContent = 'Loop Current Bar';
   }
 }
 
@@ -1417,6 +1665,7 @@ function applyDisplaySettings() {
     progressBarColor: document.getElementById('progressBarColor').value,
     progressBarWidth: parseInt(document.getElementById('progressBarWidth').value),
     backgroundColor: document.getElementById('backgroundColor').value,
+    backgroundFlashColor: document.getElementById('backgroundFlashColor').value,
     textColor: document.getElementById('textColor').value,
     chordColor: document.getElementById('chordColor').value
   };
@@ -1429,10 +1678,11 @@ function applyDisplaySettings() {
 
 function resetDisplaySettings() {
   displaySettings = {
-    lightColor: '#ff0000',
-    progressBarColor: '#ff0000',
+    lightColor: '#ffffff',
+    progressBarColor: '#ffffff',
     progressBarWidth: 4,
     backgroundColor: '#000000',
+    backgroundFlashColor: '#808080',
     textColor: '#ffffff',
     chordColor: '#ffcc00'
   };
@@ -1443,6 +1693,7 @@ function resetDisplaySettings() {
   document.getElementById('progressBarWidth').value = displaySettings.progressBarWidth;
   document.getElementById('progressBarWidthDisplay').textContent = `${displaySettings.progressBarWidth}px`;
   document.getElementById('backgroundColor').value = displaySettings.backgroundColor;
+  document.getElementById('backgroundFlashColor').value = displaySettings.backgroundFlashColor;
   document.getElementById('textColor').value = displaySettings.textColor;
   document.getElementById('chordColor').value = displaySettings.chordColor;
 
@@ -1513,6 +1764,27 @@ ipcRenderer.on('song-ended', async () => {
   }
   // If repeatSong is true, the server handles looping automatically
 });
+
+// Listen for sync offset updates
+ipcRenderer.on('sync-offset-update', (event, offset) => {
+  document.getElementById('syncOffsetDisplay').textContent = `${offset >= 0 ? '+' : ''}${offset} ms`;
+});
+
+// Manual sync functions
+async function adjustSyncOffset(ms) {
+  if (!serverRunning) return;
+  await ipcRenderer.invoke('adjust-sync-offset', ms);
+}
+
+async function adjustSyncByBeat(direction) {
+  if (!serverRunning) return;
+  await ipcRenderer.invoke('adjust-sync-by-beat', direction);
+}
+
+async function resetSyncOffset() {
+  if (!serverRunning) return;
+  await ipcRenderer.invoke('reset-sync-offset');
+}
 
 // Initialize on load
 init();

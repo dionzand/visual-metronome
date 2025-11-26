@@ -54,6 +54,16 @@ class MetronomeServer {
     this.loopStart = scoreData.loop?.start || null;
     this.loopEnd = scoreData.loop?.end || null;
 
+    // Pending jump settings
+    this.pendingJump = null; // { barNumber, mode }
+
+    // Sync offset for manual timing adjustment
+    this.syncOffset = 0; // milliseconds
+
+    // Loop current bar setting
+    this.loopCurrentBarEnabled = false;
+    this.loopCurrentBarNumber = null;
+
     // Build flat bar structure for easier navigation
     this.buildBarStructure();
 
@@ -78,9 +88,14 @@ class MetronomeServer {
           barInSection: barIndex,
           sectionName: section.name,
           tempo: section.tempo,
+          tempoTransitionBars: section.tempoTransitionBars || 0,
           timeSignature: section.timeSignature,
           chords: bar.chords,
           redirect: bar.redirect,
+          redirectCount: bar.redirectCount || 1,
+          isFermata: bar.isFermata || false,
+          fermataDuration: bar.fermataDuration || 4,
+          fermataDurationType: bar.fermataDurationType || 'beats',
           accentPattern: bar.accentPattern || [],
           subdivision: bar.subdivision || 'none',
           oscAddress: bar.oscAddress || null,
@@ -90,6 +105,9 @@ class MetronomeServer {
     });
 
     this.totalBars = this.flatBars.length;
+
+    // Initialize redirect tracking
+    this.redirectTracking = {};
   }
 
   getAbsoluteBarNumber() {
@@ -369,14 +387,68 @@ class MetronomeServer {
     if (this.inCountoff) {
       return this.scoreData.sections[0]?.tempo || 120;
     }
-    const section = this.scoreData.sections[this.currentSectionIndex];
-    return section?.tempo || 120;
+
+    const currentSection = this.scoreData.sections[this.currentSectionIndex];
+    if (!currentSection) return 120;
+
+    // Check if NEXT section has a tempo transition that affects current bars
+    const nextSectionIndex = this.currentSectionIndex + 1;
+    if (nextSectionIndex < this.scoreData.sections.length) {
+      const nextSection = this.scoreData.sections[nextSectionIndex];
+      const transitionBars = nextSection.tempoTransitionBars || 0;
+
+      if (transitionBars > 0) {
+        // Calculate how many bars from the end of current section we are
+        const totalBarsInSection = currentSection.bars.length;
+        const barsFromEnd = totalBarsInSection - this.currentBarInSection;
+
+        // If we're within the transition range from the end
+        if (barsFromEnd <= transitionBars) {
+          const fromTempo = currentSection.tempo;
+          const toTempo = nextSection.tempo;
+
+          // Calculate progress: 0.0 at start of transition, 1.0 at end (section boundary)
+          const progress = (transitionBars - barsFromEnd + 1) / transitionBars;
+
+          // Linear interpolation
+          const interpolatedTempo = fromTempo + (toTempo - fromTempo) * progress;
+
+          return Math.round(interpolatedTempo);
+        }
+      }
+    }
+
+    return currentSection.tempo;
+  }
+
+  isInTempoTransition() {
+    if (this.inCountoff || !this.isPlaying) return false;
+
+    const currentSection = this.scoreData.sections[this.currentSectionIndex];
+    if (!currentSection) return false;
+
+    // Check if NEXT section has a tempo transition that affects current bars
+    const nextSectionIndex = this.currentSectionIndex + 1;
+    if (nextSectionIndex < this.scoreData.sections.length) {
+      const nextSection = this.scoreData.sections[nextSectionIndex];
+      const transitionBars = nextSection.tempoTransitionBars || 0;
+
+      if (transitionBars > 0) {
+        const totalBarsInSection = currentSection.bars.length;
+        const barsFromEnd = totalBarsInSection - this.currentBarInSection;
+
+        return barsFromEnd <= transitionBars;
+      }
+    }
+
+    return false;
   }
 
   pause() {
     if (!this.isPlaying) return;
 
     this.isPlaying = false;
+    this.pendingJump = null; // Clear any pending jumps on pause
 
     if (this.updateInterval) {
       clearInterval(this.updateInterval);
@@ -398,6 +470,11 @@ class MetronomeServer {
     this.currentBeat = 0;
     this.barStartTime = null;
     this.lastTriggeredBar = -1; // Reset OSC trigger tracking
+    this.redirectTracking = {}; // Reset redirect tracking
+    this.pendingJump = null; // Clear any pending jumps
+    this.syncOffset = 0; // Reset sync offset
+    this.loopCurrentBarEnabled = false; // Disable loop current bar
+    this.loopCurrentBarNumber = null;
 
     if (this.updateInterval) {
       clearInterval(this.updateInterval);
@@ -410,7 +487,17 @@ class MetronomeServer {
     this.io.emit('playback-stopped');
   }
 
-  seekToBar(absoluteBarNumber) {
+  seekToBar(absoluteBarNumber, mode = 'direct') {
+    if (mode === 'direct') {
+      // Jump immediately
+      this.executeJump(absoluteBarNumber);
+    } else {
+      // Store pending jump to be executed at the appropriate time
+      this.pendingJump = { barNumber: absoluteBarNumber, mode };
+    }
+  }
+
+  executeJump(absoluteBarNumber) {
     // Find the section and bar for this absolute bar number
     let remaining = absoluteBarNumber;
     let sectionIndex = 0;
@@ -443,6 +530,65 @@ class MetronomeServer {
     this.loopEnd = loopSettings.end;
   }
 
+  setLoopCurrentBar(enabled) {
+    this.loopCurrentBarEnabled = enabled;
+    if (enabled && this.isPlaying && !this.inCountoff) {
+      // Store the current bar number when enabling
+      this.loopCurrentBarNumber = this.getAbsoluteBarNumber();
+    } else if (!enabled) {
+      this.loopCurrentBarNumber = null;
+    }
+  }
+
+  adjustSyncOffset(ms) {
+    if (!this.isPlaying) return this.syncOffset;
+
+    // Adjust the sync offset
+    this.syncOffset += ms;
+
+    // Apply the offset by adjusting barStartTime
+    // Positive offset = shift playback forward (earlier beat)
+    // Negative offset = shift playback backward (later beat)
+    this.barStartTime -= ms;
+
+    return this.syncOffset;
+  }
+
+  adjustSyncByBeat(direction) {
+    if (!this.isPlaying) return this.syncOffset;
+
+    const barInfo = this.getCurrentBarInfo();
+    if (!barInfo) return this.syncOffset;
+
+    // Calculate beat duration
+    const barDuration = this.getBarDuration(
+      barInfo.tempo,
+      barInfo.timeSignature,
+      barInfo.isFermata,
+      barInfo.fermataDuration,
+      barInfo.fermataDurationType
+    );
+    const beatDuration = barInfo.isFermata ? barDuration : barDuration / barInfo.timeSignature.beats;
+
+    // Adjust by one beat duration
+    const adjustment = direction * beatDuration;
+    this.syncOffset += adjustment;
+    this.barStartTime -= adjustment;
+
+    return Math.round(this.syncOffset);
+  }
+
+  resetSyncOffset() {
+    if (!this.isPlaying) {
+      this.syncOffset = 0;
+      return;
+    }
+
+    // Remove the current offset from barStartTime
+    this.barStartTime += this.syncOffset;
+    this.syncOffset = 0;
+  }
+
   updateScore(newScoreData) {
     this.scoreData = newScoreData;
     this.loopEnabled = newScoreData.loop?.enabled || false;
@@ -471,6 +617,7 @@ class MetronomeServer {
 
   startPlaybackLoop() {
     const updateRate = 1000 / 60; // 60Hz
+    let lastTempo = this.getCurrentTempo();
 
     this.updateInterval = setInterval(() => {
       if (!this.isPlaying) return;
@@ -483,9 +630,24 @@ class MetronomeServer {
         return;
       }
 
-      const barDuration = this.getBarDuration(barInfo.tempo, barInfo.timeSignature);
-      const beatDuration = barDuration / barInfo.timeSignature.beats;
+      // Use interpolated tempo if in transition
+      const currentTempo = this.getCurrentTempo();
+
+      const barDuration = this.getBarDuration(
+        currentTempo,
+        barInfo.timeSignature,
+        barInfo.isFermata,
+        barInfo.fermataDuration,
+        barInfo.fermataDurationType
+      );
+      const beatDuration = barInfo.isFermata ? barDuration : barDuration / barInfo.timeSignature.beats;
       const elapsed = now - this.barStartTime;
+
+      // Update MIDI clock if tempo has changed
+      if (currentTempo !== lastTempo) {
+        this.updateMidiClockTempo(currentTempo);
+        lastTempo = currentTempo;
+      }
 
       // Calculate current beat
       const newBeat = Math.floor(elapsed / beatDuration);
@@ -500,6 +662,12 @@ class MetronomeServer {
         this.advanceToNextBar();
       } else if (newBeat !== this.currentBeat) {
         this.currentBeat = newBeat;
+
+        // Check for pending jump on next beat
+        if (this.pendingJump && this.pendingJump.mode === 'nextBeat') {
+          this.executeJump(this.pendingJump.barNumber);
+          this.pendingJump = null;
+        }
       }
 
       // Check for OSC trigger on bar start (beat 0, new bar)
@@ -530,6 +698,19 @@ class MetronomeServer {
   }
 
   advanceToNextBar() {
+    // Check for loop current bar (highest priority)
+    if (this.loopCurrentBarEnabled && this.loopCurrentBarNumber && !this.inCountoff) {
+      this.executeJump(this.loopCurrentBarNumber);
+      return;
+    }
+
+    // Check for pending jump after bar
+    if (this.pendingJump && this.pendingJump.mode === 'afterBar') {
+      this.executeJump(this.pendingJump.barNumber);
+      this.pendingJump = null;
+      return;
+    }
+
     if (this.inCountoff) {
       this.countoffBarsRemaining--;
 
@@ -548,10 +729,25 @@ class MetronomeServer {
     const currentAbsoluteBar = this.getAbsoluteBarNumber();
     const currentBarInfo = this.flatBars[currentAbsoluteBar - 1];
 
-    // Check for redirect
+    // Check for redirect with limit
     if (currentBarInfo && currentBarInfo.redirect) {
-      this.seekToBar(currentBarInfo.redirect);
-      return;
+      const redirectKey = `${currentAbsoluteBar}-${currentBarInfo.redirect}`;
+
+      // Initialize tracking for this redirect if not exists
+      if (!this.redirectTracking[redirectKey]) {
+        this.redirectTracking[redirectKey] = 0;
+      }
+
+      // Check if we should redirect (before incrementing)
+      if (this.redirectTracking[redirectKey] < currentBarInfo.redirectCount) {
+        this.redirectTracking[redirectKey]++;
+        this.seekToBar(currentBarInfo.redirect);
+        return;
+      } else {
+        // Reset counter and continue to next bar
+        this.redirectTracking[redirectKey] = 0;
+        // Fall through to continue to next bar normally
+      }
     }
 
     // Check for loop
@@ -596,7 +792,21 @@ class MetronomeServer {
     this.barStartTime = Date.now();
   }
 
-  getBarDuration(tempo, timeSignature) {
+  getBarDuration(tempo, timeSignature, isFermata = false, fermataDuration = 4, fermataDurationType = 'beats') {
+    if (isFermata) {
+      if (fermataDurationType === 'seconds') {
+        // Duration in seconds - convert to milliseconds
+        return fermataDuration * 1000;
+      } else {
+        // Duration in beats - calculate based on tempo
+        const tempoPercentage = this.scoreData.tempoPercentage || 100;
+        const adjustedTempo = tempo * (tempoPercentage / 100);
+        const beatsPerSecond = adjustedTempo / 60;
+        const secondsForDuration = fermataDuration / beatsPerSecond;
+        return secondsForDuration * 1000;
+      }
+    }
+
     const beatsPerBar = timeSignature.beats;
     // Apply tempo percentage (default to 100% if not set)
     const tempoPercentage = this.scoreData.tempoPercentage || 100;
@@ -636,7 +846,14 @@ class MetronomeServer {
     }
 
     const now = Date.now();
-    const barDuration = this.getBarDuration(barInfo.tempo, barInfo.timeSignature);
+    const currentTempo = this.getCurrentTempo();
+    const barDuration = this.getBarDuration(
+      currentTempo,
+      barInfo.timeSignature,
+      barInfo.isFermata,
+      barInfo.fermataDuration,
+      barInfo.fermataDurationType
+    );
     const elapsed = now - this.barStartTime;
     const progress = Math.min(elapsed / barDuration, 1);
 
@@ -649,11 +866,15 @@ class MetronomeServer {
       sectionName: barInfo.sectionName || '',
       songName: this.scoreData.name || 'Untitled',
       timeSignature: barInfo.timeSignature,
-      tempo: barInfo.tempo || 120,
+      tempo: currentTempo,
       isCountoff: this.inCountoff,
       countoffBarsRemaining: this.countoffBarsRemaining,
       accentPattern: barInfo.accentPattern || [],
-      subdivision: barInfo.subdivision || 'none'
+      subdivision: barInfo.subdivision || 'none',
+      isFermata: barInfo.isFermata || false,
+      fermataDuration: barInfo.fermataDuration || 4,
+      fermataDurationType: barInfo.fermataDurationType || 'beats',
+      isTempoTransition: this.isInTempoTransition()
     };
   }
 }

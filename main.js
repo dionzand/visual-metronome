@@ -227,9 +227,60 @@ ipcMain.handle('get-playback-status', async () => {
   return { isPlaying: false };
 });
 
-ipcMain.handle('seek-to-bar', async (event, barNumber) => {
+ipcMain.handle('get-current-bar', async () => {
   if (metronomeServer) {
-    metronomeServer.seekToBar(barNumber);
+    return metronomeServer.getAbsoluteBarNumber();
+  }
+  return 1;
+});
+
+ipcMain.handle('adjust-sync-offset', async (event, ms) => {
+  if (metronomeServer) {
+    const newOffset = metronomeServer.adjustSyncOffset(ms);
+    if (mainWindow) {
+      mainWindow.webContents.send('sync-offset-update', newOffset);
+    }
+    return { success: true, offset: newOffset };
+  }
+  return { success: false, error: 'Server not started' };
+});
+
+ipcMain.handle('adjust-sync-by-beat', async (event, direction) => {
+  if (metronomeServer) {
+    const newOffset = metronomeServer.adjustSyncByBeat(direction);
+    if (mainWindow) {
+      mainWindow.webContents.send('sync-offset-update', newOffset);
+    }
+    return { success: true, offset: newOffset };
+  }
+  return { success: false, error: 'Server not started' };
+});
+
+ipcMain.handle('reset-sync-offset', async () => {
+  if (metronomeServer) {
+    metronomeServer.resetSyncOffset();
+    if (mainWindow) {
+      mainWindow.webContents.send('sync-offset-update', 0);
+    }
+    return { success: true };
+  }
+  return { success: false, error: 'Server not started' };
+});
+
+ipcMain.handle('toggle-loop-current-bar', async (event, enabled) => {
+  if (metronomeServer) {
+    metronomeServer.setLoopCurrentBar(enabled);
+    return { success: true };
+  }
+  return { success: false, error: 'Server not started' };
+});
+
+ipcMain.handle('seek-to-bar', async (event, data) => {
+  if (metronomeServer) {
+    // Support both old format (just barNumber) and new format (object with barNumber and mode)
+    const barNumber = typeof data === 'number' ? data : data.barNumber;
+    const mode = typeof data === 'object' ? data.mode : 'direct';
+    metronomeServer.seekToBar(barNumber, mode);
     return { success: true };
   }
   return { success: false, error: 'Server not started' };

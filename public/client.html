@@ -22,11 +22,11 @@
     }
 
     body.first-beat {
-      background-color: #1a0000;
+      background-color: #2a0000;
     }
 
     body.accented-beat {
-      background-color: #2a0a0a;
+      background-color: #4a1a1a;
     }
 
     /* Status indicator */
@@ -105,6 +105,38 @@
       min-height: 1.2em;
     }
 
+    /* Fermata symbol */
+    .fermata-symbol {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      font-size: 15em;
+      color: rgba(255, 255, 255, 0.3);
+      text-align: center;
+      display: none;
+      font-family: serif;
+    }
+
+    .fermata-symbol.active {
+      display: block;
+    }
+
+    .fermata-info {
+      position: fixed;
+      bottom: 120px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 1.5em;
+      color: rgba(255, 255, 255, 0.5);
+      display: none;
+      text-align: center;
+    }
+
+    .fermata-info.active {
+      display: block;
+    }
+
     /* Time signature - subtle, bottom left */
     .time-signature {
       position: fixed;
@@ -114,43 +146,47 @@
       color: rgba(255, 255, 255, 0.25);
     }
 
-    /* Progress line - vertical line moving left to right with trail */
+    /* Tempo change indicator */
+    .tempo-change-indicator {
+      position: fixed;
+      bottom: 65px;
+      left: 60px;
+      font-size: 1em;
+      color: rgba(255, 200, 0, 0.8);
+      display: none;
+      font-weight: 600;
+      animation: pulse 1s ease-in-out infinite;
+    }
+
+    .tempo-change-indicator.active {
+      display: block;
+    }
+
+    @keyframes pulse {
+      0%, 100% {
+        opacity: 0.6;
+      }
+      50% {
+        opacity: 1;
+      }
+    }
+
+    /* Progress line - vertical line moving left to right */
     .progress-line {
       position: fixed;
       top: 0;
       left: 0%;
       width: 4px;
       height: 100vh;
-      background: linear-gradient(180deg,
-        rgba(255, 0, 0, 0) 0%,
-        rgba(255, 0, 0, 0.8) 20%,
-        rgba(255, 0, 0, 1) 50%,
-        rgba(255, 0, 0, 0.8) 80%,
-        rgba(255, 0, 0, 0) 100%
-      );
-      box-shadow: 0 0 20px rgba(255, 0, 0, 0.8),
-                  0 0 40px rgba(255, 0, 0, 0.4);
+      background: #ff0000;
       transition: none;
       z-index: 5;
       transform: translateX(-50%);
     }
 
-    /* Trailing effect element */
+    /* Trailing effect element - hidden */
     .progress-trail {
-      position: fixed;
-      top: 0;
-      left: 0%;
-      width: 80px;
-      height: 100vh;
-      background: linear-gradient(90deg,
-        rgba(255, 0, 0, 0.3) 0%,
-        rgba(255, 0, 0, 0.15) 20%,
-        rgba(255, 0, 0, 0.05) 50%,
-        rgba(255, 0, 0, 0) 100%
-      );
-      z-index: 4;
-      transform: translateX(-100%);
-      pointer-events: none;
+      display: none;
     }
 
     /* Metronome lights - red, bottom center */
@@ -167,8 +203,8 @@
     }
 
     .light {
-      width: 80px;
-      height: 80px;
+      width: 120px;
+      height: 120px;
       border-radius: 50%;
       background-color: rgba(100, 0, 0, 0.3);
       box-shadow: 0 0 15px rgba(0, 0, 0, 0.5);
@@ -217,6 +253,9 @@
   <div class="section-name" id="sectionName"></div>
   <div class="bar-number" id="barNumber">--</div>
   <div class="chords" id="chords"></div>
+  <div class="fermata-symbol" id="fermataSymbol">𝄐</div>
+  <div class="fermata-info" id="fermataInfo"></div>
+  <div class="tempo-change-indicator" id="tempoChangeIndicator"></div>
   <div class="time-signature" id="timeSignature"></div>
 
   <div class="progress-trail" id="progressTrail"></div>

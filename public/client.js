@@ -5,11 +5,14 @@ let currentSubdivision = -1;
 let scoreData = null;
 let currentBeatsInBar = 0;
 let lightElements = [];
+let backgroundFlashTimeout = null;
+let lastTempo = null;
 let displaySettings = {
-  lightColor: '#ff0000',
-  progressBarColor: '#ff0000',
+  lightColor: '#ffffff',
+  progressBarColor: '#ffffff',
   progressBarWidth: 4,
   backgroundColor: '#000000',
+  backgroundFlashColor: '#808080',
   textColor: '#ffffff',
   chordColor: '#ffcc00'
 };
@@ -25,6 +28,9 @@ const waitingMessageEl = document.getElementById('waitingMessage');
 const timeSignatureEl = document.getElementById('timeSignature');
 const sectionNameEl = document.getElementById('sectionName');
 const songNameEl = document.getElementById('songName');
+const fermataSymbolEl = document.getElementById('fermataSymbol');
+const fermataInfoEl = document.getElementById('fermataInfo');
+const tempoChangeIndicatorEl = document.getElementById('tempoChangeIndicator');
 
 // Create lights dynamically based on number of beats
 function createLights(numBeats) {
@@ -35,16 +41,16 @@ function createLights(numBeats) {
   lightElements = [];
 
   // Calculate size based on number of beats
-  // Base size is 80px, scale down for more beats
-  let size = 80;
-  let gap = 20;
+  // Base size is 120px, scale down for more beats
+  let size = 120;
+  let gap = 25;
 
   if (numBeats > 8) {
-    size = Math.max(30, 80 - (numBeats - 8) * 5);
-    gap = Math.max(8, 20 - (numBeats - 8) * 1.5);
+    size = Math.max(50, 120 - (numBeats - 8) * 7);
+    gap = Math.max(12, 25 - (numBeats - 8) * 1.5);
   } else if (numBeats > 4) {
-    size = Math.max(50, 80 - (numBeats - 4) * 7);
-    gap = Math.max(12, 20 - (numBeats - 4) * 2);
+    size = Math.max(80, 120 - (numBeats - 4) * 10);
+    gap = Math.max(15, 25 - (numBeats - 4) * 2.5);
   }
 
   metronomeLightsEl.style.gap = `${gap}px`;
@@ -116,12 +122,28 @@ socket.on('playback-stopped', () => {
   progressLineEl.style.left = '0%';
   progressTrailEl.style.left = '0%';
 
-  // Clear all lights
+  // Hide fermata elements
+  fermataSymbolEl.classList.remove('active');
+  fermataInfoEl.classList.remove('active');
+
+  // Hide tempo change indicator and reset tempo tracking
+  tempoChangeIndicatorEl.classList.remove('active');
+  lastTempo = null;
+
+  // Show lights and clear them
+  metronomeLightsEl.style.display = 'flex';
   lightElements.forEach(light => {
     light.classList.remove('active', 'accented', 'subdivision');
   });
 
-  document.body.classList.remove('first-beat');
+  // Clear background flash timeout and reset background
+  if (backgroundFlashTimeout) {
+    clearTimeout(backgroundFlashTimeout);
+    backgroundFlashTimeout = null;
+  }
+  document.body.style.backgroundColor = displaySettings.backgroundColor;
+  document.body.classList.remove('first-beat', 'accented-beat');
+
   currentBeat = -1;
   currentSubdivision = -1;
 });
@@ -147,8 +169,51 @@ socket.on('state-update', (state) => {
   // Update time signature and tempo
   timeSignatureEl.textContent = `${state.timeSignature.beats}/${state.timeSignature.noteValue} @ ${currentTempo} BPM`;
 
-  // Create/update lights based on time signature
-  createLights(state.timeSignature.beats);
+  // Show tempo change indicator if we're in a tempo transition
+  if (state.isTempoTransition) {
+    // Determine direction by comparing current tempo to last tempo
+    if (lastTempo !== null) {
+      if (currentTempo > lastTempo) {
+        tempoChangeIndicatorEl.textContent = '↗ Tempo Rising';
+      } else if (currentTempo < lastTempo) {
+        tempoChangeIndicatorEl.textContent = '↘ Tempo Falling';
+      } else {
+        // Tempo hasn't changed yet, keep previous text or set default
+        if (!tempoChangeIndicatorEl.textContent) {
+          tempoChangeIndicatorEl.textContent = 'Tempo Transitioning';
+        }
+      }
+    } else {
+      // First update in transition, set generic message
+      tempoChangeIndicatorEl.textContent = 'Tempo Transitioning';
+    }
+    tempoChangeIndicatorEl.classList.add('active');
+  } else {
+    tempoChangeIndicatorEl.classList.remove('active');
+  }
+
+  lastTempo = currentTempo;
+
+  // Handle fermata bars
+  if (state.isFermata) {
+    // Show fermata symbol and info
+    fermataSymbolEl.classList.add('active');
+    const durationText = state.fermataDurationType === 'seconds'
+      ? `${state.fermataDuration} seconds`
+      : `${state.fermataDuration} beats`;
+    fermataInfoEl.textContent = `Hold for ${durationText}`;
+    fermataInfoEl.classList.add('active');
+    // Hide lights for fermata
+    metronomeLightsEl.style.display = 'none';
+  } else {
+    // Hide fermata elements
+    fermataSymbolEl.classList.remove('active');
+    fermataInfoEl.classList.remove('active');
+    // Show lights for normal bars
+    metronomeLightsEl.style.display = 'flex';
+    // Create/update lights based on time signature
+    createLights(state.timeSignature.beats);
+  }
 
   // Update song name
   songNameEl.textContent = state.songName || '';
@@ -176,10 +241,12 @@ socket.on('state-update', (state) => {
   progressLineEl.style.left = `${progress}%`;
   progressTrailEl.style.left = `${progress}%`;
 
-  // Update metronome lights with accent pattern and subdivisions
-  const isAccented = state.accentPattern && state.accentPattern.includes(state.beat);
-  const subdivisionIndex = state.currentSubdivision || 0;
-  updateMetronomeLights(state.beat, subdivisionIndex, isAccented);
+  // Update metronome lights with accent pattern and subdivisions (only for non-fermata bars)
+  if (!state.isFermata) {
+    const isAccented = state.accentPattern && state.accentPattern.includes(state.beat);
+    const subdivisionIndex = state.currentSubdivision || 0;
+    updateMetronomeLights(state.beat, subdivisionIndex, isAccented);
+  }
 });
 
 function updateMetronomeLights(beat, subdivisionIndex, isAccented) {
@@ -207,19 +274,33 @@ function updateMetronomeLights(beat, subdivisionIndex, isAccented) {
     light.style.transform = 'scale(1)';
   });
 
-  // Accent first beat with background color change (only on beat 0, subdivision 0)
-  if (beat === 0 && subdivisionIndex === 0) {
-    document.body.classList.add('first-beat');
-    setTimeout(() => {
-      document.body.classList.remove('first-beat');
-    }, 150);
+  // Clear any pending background flash timeout
+  if (backgroundFlashTimeout) {
+    clearTimeout(backgroundFlashTimeout);
+    backgroundFlashTimeout = null;
   }
 
+  // Get the base background color and flash color
+  const baseBackgroundColor = displaySettings.backgroundColor;
+  const flashColor = displaySettings.backgroundFlashColor;
+
   // For accented beats, add stronger background flash (only on main beat, not subdivisions)
+  // Accented beats take priority over first beat
   if (isAccented && subdivisionIndex === 0) {
-    document.body.classList.add('accented-beat');
-    setTimeout(() => {
-      document.body.classList.remove('accented-beat');
+    document.body.style.backgroundColor = flashColor;
+
+    backgroundFlashTimeout = setTimeout(() => {
+      document.body.style.backgroundColor = baseBackgroundColor;
+      backgroundFlashTimeout = null;
+    }, 250);
+  }
+  // Accent first beat with background color change (only on beat 0, subdivision 0, if not already accented)
+  else if (beat === 0 && subdivisionIndex === 0) {
+    document.body.style.backgroundColor = flashColor;
+
+    backgroundFlashTimeout = setTimeout(() => {
+      document.body.style.backgroundColor = baseBackgroundColor;
+      backgroundFlashTimeout = null;
     }, 200);
   }
 
@@ -284,25 +365,9 @@ function applyDisplaySettings() {
   // Chord color
   chordsEl.style.color = displaySettings.chordColor;
 
-  // Progress line
+  // Progress line - simple solid color, no blur
   progressLineEl.style.width = `${displaySettings.progressBarWidth}px`;
-  progressLineEl.style.background = `linear-gradient(180deg,
-    ${hexToRgba(displaySettings.progressBarColor, 0)} 0%,
-    ${hexToRgba(displaySettings.progressBarColor, 0.8)} 20%,
-    ${displaySettings.progressBarColor} 50%,
-    ${hexToRgba(displaySettings.progressBarColor, 0.8)} 80%,
-    ${hexToRgba(displaySettings.progressBarColor, 0)} 100%
-  )`;
-  progressLineEl.style.boxShadow = `0 0 20px ${hexToRgba(displaySettings.progressBarColor, 0.8)},
-    0 0 40px ${hexToRgba(displaySettings.progressBarColor, 0.4)}`;
-
-  // Progress trail (motion blur effect)
-  progressTrailEl.style.background = `linear-gradient(90deg,
-    ${hexToRgba(displaySettings.progressBarColor, 0.3)} 0%,
-    ${hexToRgba(displaySettings.progressBarColor, 0.15)} 20%,
-    ${hexToRgba(displaySettings.progressBarColor, 0.05)} 50%,
-    ${hexToRgba(displaySettings.progressBarColor, 0)} 100%
-  )`;
+  progressLineEl.style.background = displaySettings.progressBarColor;
 
   // Update CSS custom properties for lights
   document.documentElement.style.setProperty('--light-color', displaySettings.lightColor);
