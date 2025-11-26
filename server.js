@@ -64,6 +64,10 @@ class MetronomeServer {
     this.repeatStack = []; // Stack of {startBar, timesPlayed, endBar}
     this.currentPassNumber = 1; // Which pass through the repeat (1, 2, 3...)
 
+    // D.S./D.C./Coda navigation tracking
+    this.hasJumpedViaDSorDC = false; // Track if we've executed a D.S. or D.C. jump
+    this.shouldWatchForToCodaOrFine = false; // After D.S./D.C., watch for To Coda or Fine
+
     // Loop current bar setting
     this.loopCurrentBarEnabled = false;
     this.loopCurrentBarNumber = null;
@@ -105,6 +109,12 @@ class MetronomeServer {
           startRepeat: bar.startRepeat || false,
           endRepeat: bar.endRepeat || false,
           volta: bar.volta || null,
+          segno: bar.segno || false,
+          coda: bar.coda || false,
+          dalSegno: bar.dalSegno || false,
+          daCapo: bar.daCapo || false,
+          toCoda: bar.toCoda || false,
+          fine: bar.fine || false,
           oscAddress: bar.oscAddress || null,
           oscArgs: bar.oscArgs || null
         });
@@ -484,6 +494,8 @@ class MetronomeServer {
     this.loopCurrentBarNumber = null;
     this.repeatStack = []; // Reset repeat tracking
     this.currentPassNumber = 1;
+    this.hasJumpedViaDSorDC = false; // Reset D.S./D.C. navigation
+    this.shouldWatchForToCodaOrFine = false;
 
     if (this.updateInterval) {
       clearInterval(this.updateInterval);
@@ -725,6 +737,26 @@ class MetronomeServer {
     return barInfo.volta !== this.currentPassNumber;
   }
 
+  findSegnoBar() {
+    // Find the first bar with segno marker
+    for (let i = 0; i < this.flatBars.length; i++) {
+      if (this.flatBars[i].segno) {
+        return i + 1; // Return 1-indexed bar number
+      }
+    }
+    return null;
+  }
+
+  findCodaBar() {
+    // Find the first bar with coda marker
+    for (let i = 0; i < this.flatBars.length; i++) {
+      if (this.flatBars[i].coda) {
+        return i + 1; // Return 1-indexed bar number
+      }
+    }
+    return null;
+  }
+
   advanceToNextBar() {
     // Check for loop current bar (highest priority)
     if (this.loopCurrentBarEnabled && this.loopCurrentBarNumber && !this.inCountoff) {
@@ -756,6 +788,49 @@ class MetronomeServer {
 
     const currentAbsoluteBar = this.getAbsoluteBarNumber();
     const currentBarInfo = this.flatBars[currentAbsoluteBar - 1];
+
+    // Check for Fine marker (only active after D.S./D.C. jump)
+    if (currentBarInfo && currentBarInfo.fine && this.shouldWatchForToCodaOrFine) {
+      console.log('Fine marker reached - stopping playback');
+      this.stopPlayback();
+      return;
+    }
+
+    // Check for To Coda marker (only active after D.S./D.C. jump)
+    if (currentBarInfo && currentBarInfo.toCoda && this.shouldWatchForToCodaOrFine) {
+      const codaBar = this.findCodaBar();
+      if (codaBar) {
+        console.log(`To Coda marker - jumping to bar ${codaBar}`);
+        this.shouldWatchForToCodaOrFine = false; // Disable further watching
+        this.seekToBar(codaBar);
+        return;
+      } else {
+        console.warn('To Coda marker found but no Coda marker exists');
+      }
+    }
+
+    // Check for Dal Segno (D.S.) marker
+    if (currentBarInfo && currentBarInfo.dalSegno && !this.hasJumpedViaDSorDC) {
+      const segnoBar = this.findSegnoBar();
+      if (segnoBar) {
+        console.log(`Dal Segno - jumping to bar ${segnoBar}`);
+        this.hasJumpedViaDSorDC = true;
+        this.shouldWatchForToCodaOrFine = true;
+        this.seekToBar(segnoBar);
+        return;
+      } else {
+        console.warn('Dal Segno marker found but no Segno marker exists');
+      }
+    }
+
+    // Check for Da Capo (D.C.) marker
+    if (currentBarInfo && currentBarInfo.daCapo && !this.hasJumpedViaDSorDC) {
+      console.log('Da Capo - jumping to bar 1');
+      this.hasJumpedViaDSorDC = true;
+      this.shouldWatchForToCodaOrFine = true;
+      this.seekToBar(1);
+      return;
+    }
 
     // Check for redirect with limit
     if (currentBarInfo && currentBarInfo.redirect) {

@@ -334,7 +334,13 @@ function addSection() {
       showAdvanced: false,
       startRepeat: false,
       endRepeat: false,
-      volta: null
+      volta: null,
+      segno: false,
+      coda: false,
+      dalSegno: false,
+      daCapo: false,
+      toCoda: false,
+      fine: false
     }]
   });
   renderSections();
@@ -600,6 +606,60 @@ function renderBarsForSection(sectionIndex) {
                      max="9"
                      style="width: 100%; padding: 6px 10px; background: #252525; color: #e0e0e0; border: 1px solid #444; border-radius: 4px;">
             </div>
+          </div>
+        </div>
+
+        <div class="advanced-field" style="border-top: 1px solid #444; padding-top: 10px; margin-top: 10px;">
+          <label style="font-weight: 600; margin-bottom: 8px; display: block;">Navigation Markers:</label>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+            <label class="checkbox-label">
+              <input type="checkbox"
+                     class="bar-segno"
+                     data-section="${sectionIndex}"
+                     data-bar="${barIndex}"
+                     ${bar.segno ? 'checked' : ''}>
+              Segno 𝄋 (target)
+            </label>
+            <label class="checkbox-label">
+              <input type="checkbox"
+                     class="bar-coda"
+                     data-section="${sectionIndex}"
+                     data-bar="${barIndex}"
+                     ${bar.coda ? 'checked' : ''}>
+              Coda ⊕ (target)
+            </label>
+            <label class="checkbox-label">
+              <input type="checkbox"
+                     class="bar-dal-segno"
+                     data-section="${sectionIndex}"
+                     data-bar="${barIndex}"
+                     ${bar.dalSegno ? 'checked' : ''}>
+              D.S. (to Segno)
+            </label>
+            <label class="checkbox-label">
+              <input type="checkbox"
+                     class="bar-da-capo"
+                     data-section="${sectionIndex}"
+                     data-bar="${barIndex}"
+                     ${bar.daCapo ? 'checked' : ''}>
+              D.C. (to start)
+            </label>
+            <label class="checkbox-label">
+              <input type="checkbox"
+                     class="bar-to-coda"
+                     data-section="${sectionIndex}"
+                     data-bar="${barIndex}"
+                     ${bar.toCoda ? 'checked' : ''}>
+              To Coda →⊕
+            </label>
+            <label class="checkbox-label">
+              <input type="checkbox"
+                     class="bar-fine"
+                     data-section="${sectionIndex}"
+                     data-bar="${barIndex}"
+                     ${bar.fine ? 'checked' : ''}>
+              Fine (end)
+            </label>
           </div>
         </div>
 
@@ -884,6 +944,66 @@ function attachSectionEventListeners() {
     input.addEventListener('blur', () => updateServerIfRunning());
   });
 
+  // Segno checkbox
+  document.querySelectorAll('.bar-segno').forEach(checkbox => {
+    checkbox.addEventListener('change', (e) => {
+      const sectionIndex = parseInt(e.target.dataset.section);
+      const barIndex = parseInt(e.target.dataset.bar);
+      sections[sectionIndex].bars[barIndex].segno = e.target.checked;
+      updateServerIfRunning();
+    });
+  });
+
+  // Coda checkbox
+  document.querySelectorAll('.bar-coda').forEach(checkbox => {
+    checkbox.addEventListener('change', (e) => {
+      const sectionIndex = parseInt(e.target.dataset.section);
+      const barIndex = parseInt(e.target.dataset.bar);
+      sections[sectionIndex].bars[barIndex].coda = e.target.checked;
+      updateServerIfRunning();
+    });
+  });
+
+  // Dal Segno checkbox
+  document.querySelectorAll('.bar-dal-segno').forEach(checkbox => {
+    checkbox.addEventListener('change', (e) => {
+      const sectionIndex = parseInt(e.target.dataset.section);
+      const barIndex = parseInt(e.target.dataset.bar);
+      sections[sectionIndex].bars[barIndex].dalSegno = e.target.checked;
+      updateServerIfRunning();
+    });
+  });
+
+  // Da Capo checkbox
+  document.querySelectorAll('.bar-da-capo').forEach(checkbox => {
+    checkbox.addEventListener('change', (e) => {
+      const sectionIndex = parseInt(e.target.dataset.section);
+      const barIndex = parseInt(e.target.dataset.bar);
+      sections[sectionIndex].bars[barIndex].daCapo = e.target.checked;
+      updateServerIfRunning();
+    });
+  });
+
+  // To Coda checkbox
+  document.querySelectorAll('.bar-to-coda').forEach(checkbox => {
+    checkbox.addEventListener('change', (e) => {
+      const sectionIndex = parseInt(e.target.dataset.section);
+      const barIndex = parseInt(e.target.dataset.bar);
+      sections[sectionIndex].bars[barIndex].toCoda = e.target.checked;
+      updateServerIfRunning();
+    });
+  });
+
+  // Fine checkbox
+  document.querySelectorAll('.bar-fine').forEach(checkbox => {
+    checkbox.addEventListener('change', (e) => {
+      const sectionIndex = parseInt(e.target.dataset.section);
+      const barIndex = parseInt(e.target.dataset.bar);
+      sections[sectionIndex].bars[barIndex].fine = e.target.checked;
+      updateServerIfRunning();
+    });
+  });
+
   // OSC trigger fields
   document.querySelectorAll('.bar-osc-address').forEach(input => {
     input.addEventListener('input', (e) => {
@@ -934,7 +1054,13 @@ function addBarToSection(sectionIndex) {
     showAdvanced: false,
     startRepeat: false,
     endRepeat: false,
-    volta: null
+    volta: null,
+    segno: false,
+    coda: false,
+    dalSegno: false,
+    daCapo: false,
+    toCoda: false,
+    fine: false
   });
   calculateTotalBars();
   renderSections(); // Re-render everything to update all redirect options
@@ -956,7 +1082,13 @@ function addBarsToSection(sectionIndex, count) {
       showAdvanced: false,
       startRepeat: false,
       endRepeat: false,
-      volta: null
+      volta: null,
+      segno: false,
+      coda: false,
+      dalSegno: false,
+      daCapo: false,
+      toCoda: false,
+      fine: false
     });
   }
   calculateTotalBars();
