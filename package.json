@@ -1,7 +1,7 @@
 {
   "name": "metronome",
-  "version": "1.0.0",
-  "description": "Score-based visual metronome with WebSocket synchronization",
+  "version": "2.0.0",
+  "description": "Professional score-based visual metronome with advanced musical notation support",
   "main": "main.js",
   "scripts": {
     "start": "electron .",
