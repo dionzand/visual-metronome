@@ -1,5 +1,6 @@
 const express = require('express');
-const { createServer } = require('http');
+const https = require('https');
+const fs = require('fs');
 const { Server } = require('socket.io');
 const path = require('path');
 const osc = require('node-osc');
@@ -36,7 +37,14 @@ class MetronomeServer {
       chordColor: '#ffcc00'
     };
     this.app = express();
-    this.httpServer = createServer(this.app);
+
+    // Load SSL certificates
+    const sslOptions = {
+      key: fs.readFileSync(path.join(__dirname, 'certs', 'key.pem')),
+      cert: fs.readFileSync(path.join(__dirname, 'certs', 'cert.pem'))
+    };
+
+    this.httpServer = https.createServer(sslOptions, this.app);
     this.io = new Server(this.httpServer, {
       cors: {
         origin: "*",

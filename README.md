@@ -239,8 +239,17 @@ Sync external DAWs and hardware devices with MIDI clock.
 ### Connecting Clients
 1. Start the server in Playback Control tab
 2. On client devices, open a web browser
-3. Navigate to the server URL (e.g., `http://192.168.1.100:3000`)
+3. Navigate to the server URL (e.g., `https://192.168.1.100:3000`)
 4. For local network access, use your computer's local IP address instead of `localhost`
+
+**Important - Certificate Warning:**
+The server uses HTTPS with a self-signed certificate for secure WebSocket connections (required for iOS/Safari). When first connecting, you'll see a security warning:
+
+- **Safari (iOS/Mac)**: Tap "Show Details" → "visit this website" → "Visit Website"
+- **Chrome**: Click "Advanced" → "Proceed to [IP address] (unsafe)"
+- **Firefox**: Click "Advanced" → "Accept the Risk and Continue"
+
+This is normal and safe for local network use. The certificate ensures reliable WebSocket connections on all devices.
 
 ### Display Elements
 - **Song Name** - Current song title (top left, smaller)
@@ -342,8 +351,9 @@ Tempo changes smoothly: 125, 130, 135, 140 BPM
 ### Local Network
 To allow other devices on your network to connect:
 1. Find your computer's local IP address (e.g., `192.168.1.100`)
-2. Ensure port 3000 is allowed through your firewall
-3. Clients connect to `http://YOUR_IP:3000`
+2. Ensure the port (default: 3000) is allowed through your firewall
+3. Clients connect to `https://YOUR_IP:PORT` (e.g., `https://192.168.1.100:3000`)
+4. Accept the security certificate warning on first connection (see Client Display section)
 
 ### Finding Your IP Address
 - **Windows**: Open Command Prompt, type `ipconfig`, look for "IPv4 Address"

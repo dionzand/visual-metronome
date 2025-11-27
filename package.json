@@ -39,6 +39,7 @@
       "index.html",
       "styles.css",
       "public/**/*",
+      "certs/**/*",
       "node_modules/**/*"
     ],
     "win": {

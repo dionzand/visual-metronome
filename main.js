@@ -169,7 +169,7 @@ ipcMain.handle('start-server', async (event, data) => {
   setupServerCallbacks();
 
   const localIP = getLocalIP();
-  return { success: true, port: actualPort, url: `http://${localIP}:${actualPort}` };
+  return { success: true, port: actualPort, url: `https://${localIP}:${actualPort}` };
 });
 
 ipcMain.handle('update-display-settings', async (event, displaySettings) => {
