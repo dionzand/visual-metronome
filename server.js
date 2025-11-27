@@ -37,7 +37,16 @@ class MetronomeServer {
     };
     this.app = express();
     this.httpServer = createServer(this.app);
-    this.io = new Server(this.httpServer);
+    this.io = new Server(this.httpServer, {
+      cors: {
+        origin: "*",
+        methods: ["GET", "POST"]
+      },
+      transports: ['websocket', 'polling'],
+      allowEIO3: true,
+      pingTimeout: 60000,
+      pingInterval: 25000
+    });
 
     this.isPlaying = false;
     this.inCountoff = false;
@@ -164,6 +173,14 @@ class MetronomeServer {
   }
 
   setupRoutes() {
+    // Enable CORS for all routes
+    this.app.use((req, res, next) => {
+      res.header('Access-Control-Allow-Origin', '*');
+      res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+      res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept');
+      next();
+    });
+
     this.app.use(express.static(path.join(__dirname, 'public')));
 
     this.app.get('/', (req, res) => {
@@ -340,12 +357,16 @@ class MetronomeServer {
     }
   }
 
-  async start() {
-    return new Promise((resolve) => {
-      const port = 3000;
+  async start(port = 3000) {
+    return new Promise((resolve, reject) => {
       this.httpServer.listen(port, () => {
         console.log(`Metronome server started on port ${port}`);
         resolve(port);
+      });
+
+      this.httpServer.on('error', (err) => {
+        console.error(`Failed to start server on port ${port}:`, err);
+        reject(err);
       });
     });
   }

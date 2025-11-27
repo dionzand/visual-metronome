@@ -1777,7 +1777,10 @@ async function startServer() {
   midiSettings.enabled = document.getElementById('midiEnabled').checked;
   midiSettings.outputPort = document.getElementById('midiOutput').value;
 
-  const result = await ipcRenderer.invoke('start-server', { scoreData, displaySettings, repeatSong, oscSettings, midiSettings });
+  // Read port from UI
+  const port = parseInt(document.getElementById('serverPort').value) || 3000;
+
+  const result = await ipcRenderer.invoke('start-server', { scoreData, displaySettings, repeatSong, oscSettings, midiSettings, port });
 
   if (result.success) {
     serverRunning = true;

@@ -163,13 +163,13 @@ ipcMain.handle('start-server', async (event, data) => {
     metronomeServer.stop();
   }
 
-  const { scoreData, displaySettings, repeatSong, oscSettings, midiSettings } = data;
+  const { scoreData, displaySettings, repeatSong, oscSettings, midiSettings, port } = data;
   metronomeServer = new MetronomeServer(scoreData, displaySettings, repeatSong, oscSettings, midiSettings);
-  const port = await metronomeServer.start();
+  const actualPort = await metronomeServer.start(port || 3000);
   setupServerCallbacks();
 
   const localIP = getLocalIP();
-  return { success: true, port, url: `http://${localIP}:${port}` };
+  return { success: true, port: actualPort, url: `http://${localIP}:${actualPort}` };
 });
 
 ipcMain.handle('update-display-settings', async (event, displaySettings) => {
