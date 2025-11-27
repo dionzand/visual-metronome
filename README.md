@@ -44,7 +44,7 @@ A professional score-based visual metronome application with WebSocket synchroni
 ![Client Settings](screenshots/client_settings.png)
 
 ### Client Display
-![Client Settings](screenshots/client_display.png)
+![Client Display](screenshots/client_video.gif)
 
 ## Installation
 
