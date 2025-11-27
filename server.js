@@ -741,15 +741,31 @@ class MetronomeServer {
   }
 
   getMaxVoltaInRepeatSection(startBarIndex, endBarIndex) {
-    // Find the highest volta number in the repeat section
+    // Find the highest volta number in and around the repeat section
+    // Scan from start repeat to end repeat, AND beyond end repeat to find volta bars that follow
     let maxVolta = 1;
 
+    // First scan the repeat section itself
     for (let i = startBarIndex; i <= endBarIndex; i++) {
       const bar = this.flatBars[i];
       if (bar && bar.volta) {
         const voltaArray = Array.isArray(bar.volta) ? bar.volta : [bar.volta];
         const maxInBar = Math.max(...voltaArray);
         maxVolta = Math.max(maxVolta, maxInBar);
+      }
+    }
+
+    // Then scan bars immediately after the end repeat to find additional volta endings
+    // Continue scanning while we find consecutive bars with volta markers
+    for (let i = endBarIndex + 1; i < this.flatBars.length; i++) {
+      const bar = this.flatBars[i];
+      if (bar && bar.volta) {
+        const voltaArray = Array.isArray(bar.volta) ? bar.volta : [bar.volta];
+        const maxInBar = Math.max(...voltaArray);
+        maxVolta = Math.max(maxVolta, maxInBar);
+      } else {
+        // Stop when we hit a bar without volta (end of volta sequence)
+        break;
       }
     }
 
@@ -874,35 +890,47 @@ class MetronomeServer {
 
     // Check for end repeat
     if (currentBarInfo && currentBarInfo.endRepeat) {
-      const startRepeatBar = this.findMatchingStartRepeat(currentAbsoluteBar - 1);
+      // If this bar has a volta, check if we should honor the end repeat
+      // Only process end repeat if the volta matches the current pass OR if there's no volta
+      const shouldHonorEndRepeat = !currentBarInfo.volta || !this.shouldSkipBarDueToVolta(currentBarInfo);
 
-      // Check if we're already in this repeat
-      const existingRepeat = this.repeatStack.find(r => r.startBar === startRepeatBar);
+      if (shouldHonorEndRepeat) {
+        const startRepeatBar = this.findMatchingStartRepeat(currentAbsoluteBar - 1);
 
-      if (existingRepeat) {
-        existingRepeat.timesPlayed++;
+        // Check if we're already in this repeat
+        const existingRepeat = this.repeatStack.find(r => r.startBar === startRepeatBar);
 
-        // Calculate max repeats based on highest volta number in the section
-        const maxVoltaNumber = this.getMaxVoltaInRepeatSection(startRepeatBar - 1, currentAbsoluteBar - 1);
-        const maxRepeats = maxVoltaNumber > 1 ? maxVoltaNumber : 2; // Default to 2 if no voltas
+        if (existingRepeat) {
+          existingRepeat.timesPlayed++;
 
-        if (existingRepeat.timesPlayed < maxRepeats) {
-          // Repeat again - increment pass number and jump back
-          this.currentPassNumber++;
+          // Calculate max repeats based on highest volta number in the section
+          const maxVoltaNumber = this.getMaxVoltaInRepeatSection(startRepeatBar - 1, currentAbsoluteBar - 1);
+          const maxRepeats = maxVoltaNumber > 1 ? maxVoltaNumber : 2; // Default to 2 if no voltas
+
+          if (existingRepeat.timesPlayed < maxRepeats) {
+            // Repeat again - increment pass number and jump back
+            this.currentPassNumber++;
+            this.seekToBar(startRepeatBar);
+            return;
+          } else {
+            // Done repeating - remove from stack and reset pass number
+            this.repeatStack = this.repeatStack.filter(r => r.startBar !== startRepeatBar);
+            this.currentPassNumber = 1;
+            // Fall through to continue to next bar
+          }
+        } else {
+          // First time encountering this repeat
+          this.repeatStack.push({ startBar: startRepeatBar, timesPlayed: 1, endBar: currentAbsoluteBar });
+          this.currentPassNumber = 2; // Next pass
           this.seekToBar(startRepeatBar);
           return;
-        } else {
-          // Done repeating - remove from stack and reset pass number
-          this.repeatStack = this.repeatStack.filter(r => r.startBar !== startRepeatBar);
-          this.currentPassNumber = 1;
-          // Fall through to continue to next bar
         }
       } else {
-        // First time encountering this repeat
-        this.repeatStack.push({ startBar: startRepeatBar, timesPlayed: 1, endBar: currentAbsoluteBar });
-        this.currentPassNumber = 2; // Next pass
-        this.seekToBar(startRepeatBar);
-        return;
+        // Not honoring end repeat due to volta mismatch - clean up repeat stack
+        const startRepeatBar = this.findMatchingStartRepeat(currentAbsoluteBar - 1);
+        this.repeatStack = this.repeatStack.filter(r => r.startBar !== startRepeatBar);
+        this.currentPassNumber = 1;
+        // Fall through to continue to next bar normally
       }
     }
 
@@ -947,12 +975,22 @@ class MetronomeServer {
     // Skip bars based on volta brackets
     // Keep advancing while the current bar should be skipped
     let safetyCounter = 0;
+    let skippedAnyBars = false;
     while (safetyCounter < 100) { // Prevent infinite loops
       const nextAbsoluteBar = this.getAbsoluteBarNumber();
       const nextBarInfo = this.flatBars[nextAbsoluteBar - 1];
 
       if (!nextBarInfo || !this.shouldSkipBarDueToVolta(nextBarInfo)) {
         break; // Found a bar we shouldn't skip
+      }
+
+      skippedAnyBars = true;
+
+      // Check if this skipped bar has an end repeat - if so, clean up repeat state
+      if (nextBarInfo.endRepeat) {
+        const startRepeatBar = this.findMatchingStartRepeat(nextAbsoluteBar - 1);
+        this.repeatStack = this.repeatStack.filter(r => r.startBar !== startRepeatBar);
+        // DON'T reset currentPassNumber here - keep it so subsequent volta bars can be played
       }
 
       // Skip this bar - advance again
@@ -971,6 +1009,15 @@ class MetronomeServer {
       }
 
       safetyCounter++;
+    }
+
+    // After skipping volta bars, check if we should reset currentPassNumber
+    // Reset to 1 if the current bar we landed on has no volta AND we're not in any active repeat
+    const currentAbsoluteBarAfterSkip = this.getAbsoluteBarNumber();
+    const currentBarInfoAfterSkip = this.flatBars[currentAbsoluteBarAfterSkip - 1];
+    if (currentBarInfoAfterSkip && !currentBarInfoAfterSkip.volta && this.currentPassNumber > 1 && this.repeatStack.length === 0) {
+      // We've moved past all volta bars and exited all repeats, reset to pass 1
+      this.currentPassNumber = 1;
     }
 
     this.currentBeat = 0;
