@@ -1,4 +1,5 @@
 const express = require('express');
+const http = require('http');
 const https = require('https');
 const fs = require('fs');
 const { Server } = require('socket.io');
@@ -95,6 +96,10 @@ class MetronomeServer {
     // Callbacks
     this.onClientCountChange = null;
     this.onSongEnd = null;
+
+    // HTTP redirect server (will be created on start)
+    this.httpRedirectServer = null;
+    this.httpsPort = null;
 
     this.setupRoutes();
     this.setupSocketHandlers();
@@ -366,17 +371,64 @@ class MetronomeServer {
   }
 
   async start(port = 3000) {
-    return new Promise((resolve, reject) => {
+    this.httpsPort = port;
+
+    // Start HTTPS server
+    const httpsPromise = new Promise((resolve, reject) => {
       this.httpServer.listen(port, () => {
-        console.log(`Metronome server started on port ${port}`);
+        console.log(`Metronome HTTPS server started on port ${port}`);
         resolve(port);
       });
 
       this.httpServer.on('error', (err) => {
-        console.error(`Failed to start server on port ${port}:`, err);
+        console.error(`Failed to start HTTPS server on port ${port}:`, err);
         reject(err);
       });
     });
+
+    // Try to start HTTP redirect server on port 80 (optional)
+    this.startHttpRedirect(port);
+
+    return httpsPromise;
+  }
+
+  startHttpRedirect(httpsPort) {
+    // Create simple HTTP server that redirects to HTTPS
+    const redirectApp = express();
+
+    redirectApp.use((req, res) => {
+      const host = req.headers.host.split(':')[0]; // Get hostname without port
+      const redirectUrl = `https://${host}:${httpsPort}${req.url}`;
+      console.log(`HTTP redirect: ${req.url} → ${redirectUrl}`);
+      res.redirect(301, redirectUrl);
+    });
+
+    this.httpRedirectServer = http.createServer(redirectApp);
+
+    // Try ports in order: 80 (standard HTTP), 8080 (common alternative), same as HTTPS port
+    const tryPorts = [80, 8080, httpsPort];
+
+    const tryPort = (ports, index = 0) => {
+      if (index >= ports.length) {
+        console.log('HTTP redirect server not started (no available ports)');
+        return;
+      }
+
+      const port = ports[index];
+      this.httpRedirectServer.listen(port, () => {
+        console.log(`HTTP redirect server started on port ${port} → HTTPS ${httpsPort}`);
+      });
+
+      this.httpRedirectServer.on('error', (err) => {
+        if (err.code === 'EADDRINUSE' || err.code === 'EACCES') {
+          console.log(`Port ${port} not available for HTTP redirect, trying next...`);
+          this.httpRedirectServer.close();
+          tryPort(ports, index + 1);
+        }
+      });
+    };
+
+    tryPort(tryPorts);
   }
 
   stop() {
@@ -390,9 +442,13 @@ class MetronomeServer {
       this.midiOutput.close();
       this.midiOutput = null;
     }
+    if (this.httpRedirectServer) {
+      this.httpRedirectServer.close();
+      console.log('HTTP redirect server stopped');
+    }
     if (this.httpServer) {
       this.httpServer.close();
-      console.log('Metronome server stopped');
+      console.log('Metronome HTTPS server stopped');
     }
   }
 

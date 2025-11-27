@@ -136,10 +136,13 @@ Each section contains bars with:
 ### Tab 3: Playback Control
 
 #### Server Control
-- **Start Server** - Start the WebSocket server on port 3000
+- **Port** - Configure the HTTPS server port (default: 3000, range: 1024-65535)
+- **Start Server** - Start the secure WebSocket server (HTTPS/WSS)
 - **Stop Server** - Stop the server
-- **Server URL** - Display the URL for clients to connect (e.g., `http://localhost:3000`)
+- **Server URL** - Display the HTTPS URL for clients to connect (e.g., `https://192.168.1.100:3000`)
 - **Clients** - Number of connected client devices
+
+**Note:** The server automatically tries to start an HTTP→HTTPS redirect on port 80 or 8080 for convenience. If you type just the hostname/IP without `https://`, you may be automatically redirected to the secure connection.
 
 #### Song Selection
 - **Current Song** - Select which song from the setlist to play
@@ -239,7 +242,9 @@ Sync external DAWs and hardware devices with MIDI clock.
 ### Connecting Clients
 1. Start the server in Playback Control tab
 2. On client devices, open a web browser
-3. Navigate to the server URL (e.g., `https://192.168.1.100:3000`)
+3. Navigate to the server URL displayed in the app (e.g., `https://192.168.1.100:3000`)
+   - **Important:** Always use `https://` (not `http://`) when typing the URL with port number
+   - If you type just the IP/hostname without port, HTTP redirect may automatically redirect you to HTTPS
 4. For local network access, use your computer's local IP address instead of `localhost`
 
 **Important - Certificate Warning:**
