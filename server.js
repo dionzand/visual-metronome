@@ -1190,6 +1190,39 @@ class MetronomeServer {
     const accentPattern = barInfo.accentPattern || [];
     const isAccent = accentPattern.includes(this.currentBeat) || this.currentBeat === 0;
 
+    // Check for upcoming announcements (look ahead to next bar)
+    let upcomingAnnouncement = null;
+
+    if (!this.inCountoff) {
+      const currentAbsoluteBar = this.getAbsoluteBarNumber();
+      const currentSection = this.scoreData.sections[this.currentSectionIndex];
+
+      // Check if next bar should be announced
+      const nextBarInSection = this.currentBarInSection + 1;
+      if (nextBarInSection < currentSection.bars.length) {
+        const nextBar = currentSection.bars[nextBarInSection];
+        if (nextBar.announceBar) {
+          upcomingAnnouncement = {
+            type: 'bar',
+            barNumber: currentAbsoluteBar + 1
+          };
+        }
+      }
+
+      // Check if we're on the last bar of current section and next section should be announced
+      const isLastBarOfSection = (this.currentBarInSection === currentSection.bars.length - 1);
+      if (isLastBarOfSection && this.currentSectionIndex + 1 < this.scoreData.sections.length) {
+        const nextSection = this.scoreData.sections[this.currentSectionIndex + 1];
+        if (nextSection.announceSection) {
+          // Section announcement takes priority
+          upcomingAnnouncement = {
+            type: 'section',
+            sectionName: nextSection.name
+          };
+        }
+      }
+    }
+
     return {
       isPlaying: true,
       barNumber: barInfo.absoluteNumber || 0,
@@ -1210,7 +1243,9 @@ class MetronomeServer {
       isTempoTransition: this.isInTempoTransition(),
       // Click track data
       serverTimestamp: Date.now(),
-      isAccent: isAccent
+      isAccent: isAccent,
+      // Announcement data
+      upcomingAnnouncement: upcomingAnnouncement
     };
   }
 }
