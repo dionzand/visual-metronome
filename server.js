@@ -1188,7 +1188,7 @@ class MetronomeServer {
 
     // Determine if current beat is accented
     const accentPattern = barInfo.accentPattern || [];
-    const isAccent = accentPattern.includes(this.currentBeat) || this.currentBeat === 1;
+    const isAccent = accentPattern.includes(this.currentBeat) || this.currentBeat === 0;
 
     return {
       isPlaying: true,
