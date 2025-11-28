@@ -270,6 +270,31 @@
       </div>
 
       <div class="section">
+        <h2>Click Track Settings</h2>
+        <p class="info-text">Audio click track synchronized across all client devices.</p>
+        <div class="click-settings-grid">
+          <div class="setting">
+            <label for="clickEnabled">
+              <input type="checkbox" id="clickEnabled">
+              Enable Click Track
+            </label>
+          </div>
+          <div class="setting">
+            <label for="clickMode">Click Mode:</label>
+            <select id="clickMode">
+              <option value="clicks-only">Clicks Only</option>
+              <option value="with-counts">Clicks with Bar Countdown</option>
+            </select>
+          </div>
+          <div class="setting">
+            <label for="clickVolume">Volume:</label>
+            <input type="range" id="clickVolume" min="0" max="100" value="75">
+            <span id="clickVolumeValue">75%</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="section">
         <h2>MIDI Clock Output</h2>
         <p class="info-text">Send MIDI clock to sync with DAWs and hardware devices.</p>
         <div class="midi-settings-grid">
