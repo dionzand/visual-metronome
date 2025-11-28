@@ -1186,6 +1186,10 @@ class MetronomeServer {
     const elapsed = now - this.barStartTime;
     const progress = Math.min(elapsed / barDuration, 1);
 
+    // Determine if current beat is accented
+    const accentPattern = barInfo.accentPattern || [];
+    const isAccent = accentPattern.includes(this.currentBeat) || this.currentBeat === 1;
+
     return {
       isPlaying: true,
       barNumber: barInfo.absoluteNumber || 0,
@@ -1203,7 +1207,10 @@ class MetronomeServer {
       isFermata: barInfo.isFermata || false,
       fermataDuration: barInfo.fermataDuration || 4,
       fermataDurationType: barInfo.fermataDurationType || 'beats',
-      isTempoTransition: this.isInTempoTransition()
+      isTempoTransition: this.isInTempoTransition(),
+      // Click track data
+      serverTimestamp: Date.now(),
+      isAccent: isAccent
     };
   }
 }

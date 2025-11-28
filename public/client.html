@@ -244,6 +244,47 @@
       color: rgba(255, 255, 255, 0.3);
       text-align: center;
     }
+
+    /* Click Track Controls */
+    .click-controls {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      background-color: rgba(0, 0, 0, 0.7);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 8px;
+      padding: 12px 16px;
+      font-size: 0.9em;
+      z-index: 15;
+    }
+
+    .click-status {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 8px;
+      font-weight: 600;
+    }
+
+    .click-volume-control {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.85em;
+    }
+
+    .click-volume-control label {
+      color: rgba(255, 255, 255, 0.7);
+    }
+
+    .click-volume-control input[type="range"] {
+      width: 80px;
+    }
+
+    .click-volume-control span {
+      color: rgba(255, 255, 255, 0.9);
+      min-width: 35px;
+    }
   </style>
 </head>
 <body>
@@ -267,6 +308,19 @@
 
   <div class="waiting-message" id="waitingMessage">
     Waiting for playback to start...
+  </div>
+
+  <!-- Click Track Controls -->
+  <div class="click-controls" id="clickControls" style="display: none;">
+    <div class="click-status">
+      <span id="clickStatusIcon">🔊</span>
+      <span id="clickStatusText">Click: ON</span>
+    </div>
+    <div class="click-volume-control">
+      <label>Vol:</label>
+      <input type="range" id="clientClickVolume" min="0" max="100" value="75" step="5">
+      <span id="clientClickVolumeValue">75%</span>
+    </div>
   </div>
 
   <script src="/socket.io/socket.io.js"></script>

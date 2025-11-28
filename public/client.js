@@ -24,6 +24,100 @@ let displaySettings = {
   chordColor: '#ffcc00'
 };
 
+// Click Track Class
+class ClickTrack {
+  constructor() {
+    this.audioContext = null;
+    this.enabled = false;
+    this.volume = 0.75;
+    this.mode = 'clicks-only';
+    this.serverTimeOffset = 0; // Difference between server and client time
+    this.lastBeat = -1;
+    this.lastBar = -1;
+  }
+
+  init() {
+    // Create AudioContext on first user interaction to avoid browser restrictions
+    if (!this.audioContext) {
+      this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    }
+  }
+
+  updateSettings(settings) {
+    this.enabled = settings.enabled;
+    this.volume = settings.volume / 100; // Convert 0-100 to 0-1
+    this.mode = settings.mode;
+  }
+
+  updateTimeOffset(serverTimestamp) {
+    // Calculate offset between server and client clocks
+    const clientTime = Date.now();
+    const newOffset = serverTimestamp - clientTime;
+
+    // Use exponential moving average to smooth out network jitter
+    if (this.serverTimeOffset === 0) {
+      this.serverTimeOffset = newOffset;
+    } else {
+      this.serverTimeOffset = this.serverTimeOffset * 0.9 + newOffset * 0.1;
+    }
+  }
+
+  playClick(isAccent, when = null) {
+    if (!this.enabled || !this.audioContext) return;
+
+    const now = this.audioContext.currentTime;
+    const playTime = when || now;
+
+    // Create oscillator for beep sound
+    const osc = this.audioContext.createOscillator();
+    const gainNode = this.audioContext.createGain();
+
+    // Frequency: 800Hz for accent, 400Hz for normal beat
+    osc.frequency.value = isAccent ? 800 : 400;
+
+    // Volume envelope
+    gainNode.gain.value = 0;
+    gainNode.gain.setValueAtTime(0, playTime);
+    gainNode.gain.linearRampToValueAtTime(this.volume * (isAccent ? 1.0 : 0.6), playTime + 0.001);
+    gainNode.gain.exponentialRampToValueAtTime(0.01, playTime + 0.05);
+
+    // Connect and play
+    osc.connect(gainNode);
+    gainNode.connect(this.audioContext.destination);
+
+    osc.start(playTime);
+    osc.stop(playTime + 0.05);
+  }
+
+  onBeat(state) {
+    if (!this.enabled || !state.isPlaying) return;
+
+    // Initialize AudioContext if needed
+    if (!this.audioContext) {
+      this.init();
+    }
+
+    // Update time offset for sync
+    if (state.serverTimestamp) {
+      this.updateTimeOffset(state.serverTimestamp);
+    }
+
+    // Only trigger click once per beat
+    if (state.beat !== this.lastBeat || state.barNumber !== this.lastBar) {
+      this.lastBeat = state.beat;
+      this.lastBar = state.barNumber;
+
+      // Don't play click during fermata
+      if (!state.isFermata) {
+        this.playClick(state.isAccent);
+      }
+    }
+  }
+}
+
+// Create click track instance
+const clickTrack = new ClickTrack();
+
 // DOM elements
 const statusEl = document.getElementById('status');
 const barNumberEl = document.getElementById('barNumber');
@@ -105,6 +199,42 @@ socket.on('display-settings', (settings) => {
   applyDisplaySettings();
 });
 
+socket.on('click-settings', (settings) => {
+  console.log('Received click settings:', settings);
+  clickTrack.updateSettings(settings);
+  updateClickControlsUI(settings);
+});
+
+function updateClickControlsUI(settings) {
+  const clickControlsEl = document.getElementById('clickControls');
+  const clickStatusIconEl = document.getElementById('clickStatusIcon');
+  const clickStatusTextEl = document.getElementById('clickStatusText');
+  const clientVolumeSlider = document.getElementById('clientClickVolume');
+  const clientVolumeValue = document.getElementById('clientClickVolumeValue');
+
+  if (settings.enabled) {
+    clickControlsEl.style.display = 'block';
+    clickStatusIconEl.textContent = '🔊';
+    clickStatusTextEl.textContent = 'Click: ON';
+    clientVolumeSlider.value = settings.volume;
+    clientVolumeValue.textContent = settings.volume + '%';
+  } else {
+    clickControlsEl.style.display = 'none';
+  }
+}
+
+// Client-side volume control
+document.addEventListener('DOMContentLoaded', () => {
+  const clientVolumeSlider = document.getElementById('clientClickVolume');
+  const clientVolumeValue = document.getElementById('clientClickVolumeValue');
+
+  clientVolumeSlider.addEventListener('input', (e) => {
+    const volume = parseInt(e.target.value);
+    clientVolumeValue.textContent = volume + '%';
+    clickTrack.volume = volume / 100; // Update click track volume directly
+  });
+});
+
 socket.on('playback-started', () => {
   console.log('Playback started');
   waitingMessageEl.style.display = 'none';
@@ -157,6 +287,9 @@ socket.on('playback-stopped', () => {
 
 socket.on('state-update', (state) => {
   if (!state.isPlaying) return;
+
+  // Handle click track
+  clickTrack.onBeat(state);
 
   // Get first section's tempo for initial display
   let currentTempo = state.tempo || (scoreData && scoreData.sections && scoreData.sections[0] ? scoreData.sections[0].tempo : 120);
