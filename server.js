@@ -21,6 +21,9 @@ class MetronomeServer {
     this.midiClockInterval = null;
     this.lastMidiClockTime = 0;
 
+    // Click track settings
+    this.clickSettings = { enabled: false, mode: 'clicks-only', volume: 75 };
+
     if (this.oscSettings.enabled) {
       this.setupOscClient();
     }
@@ -213,6 +216,9 @@ class MetronomeServer {
       // Send display settings
       socket.emit('display-settings', this.displaySettings);
 
+      // Send click track settings
+      socket.emit('click-settings', this.clickSettings);
+
       // Send current playback state
       if (this.isPlaying) {
         socket.emit('state-update', this.getCurrentState());
@@ -285,6 +291,12 @@ class MetronomeServer {
       console.error('Failed to setup MIDI output:', error);
       this.midiOutput = null;
     }
+  }
+
+  updateClickSettings(settings) {
+    this.clickSettings = settings;
+    // Broadcast click settings to all connected clients
+    this.io.emit('click-settings', this.clickSettings);
   }
 
   async updateMidiSettings(settings) {

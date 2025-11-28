@@ -347,6 +347,14 @@ ipcMain.handle('update-midi-settings', async (event, midiSettings) => {
   return { success: false, error: 'Server not started' };
 });
 
+ipcMain.handle('update-click-settings', async (event, clickSettings) => {
+  if (metronomeServer) {
+    metronomeServer.updateClickSettings(clickSettings);
+    return { success: true };
+  }
+  return { success: false, error: 'Server not started' };
+});
+
 // IPC handlers for async dialogs (fixes Windows input focus bug)
 ipcMain.handle('show-message-box', async (event, options) => {
   const result = await dialog.showMessageBox(mainWindow, options);
