@@ -22,7 +22,7 @@ class MetronomeServer {
     this.lastMidiClockTime = 0;
 
     // Click track settings
-    this.clickSettings = { enabled: false, mode: 'clicks-only', volume: 75 };
+    this.clickSettings = { enabled: false, volume: 75 };
 
     if (this.oscSettings.enabled) {
       this.setupOscClient();
@@ -1190,104 +1190,6 @@ class MetronomeServer {
     const accentPattern = barInfo.accentPattern || [];
     const isAccent = accentPattern.includes(this.currentBeat) || this.currentBeat === 0;
 
-    // Check for upcoming announcements (look ahead 2 bars for proper timing)
-    let upcomingAnnouncement = null;
-
-    if (!this.inCountoff) {
-      const currentAbsoluteBar = this.getAbsoluteBarNumber();
-      const currentSection = this.scoreData.sections[this.currentSectionIndex];
-
-      // Look 2 bars ahead for bar announcements
-      // Bar N-2: We're here, need to announce on last beat
-      // Bar N-1: Countdown bar (four, three, two, one)
-      // Bar N: Announced bar starts
-
-      let barsAhead = 0;
-      let sectionIdx = this.currentSectionIndex;
-      let barIdx = this.currentBarInSection;
-
-      // Check bar N+2 (2 bars ahead)
-      for (let i = 0; i < 2; i++) {
-        barIdx++;
-        if (barIdx >= this.scoreData.sections[sectionIdx].bars.length) {
-          sectionIdx++;
-          barIdx = 0;
-          if (sectionIdx >= this.scoreData.sections.length) break;
-        }
-        barsAhead++;
-      }
-
-      if (barsAhead === 2 && sectionIdx < this.scoreData.sections.length) {
-        const targetSection = this.scoreData.sections[sectionIdx];
-        const targetBar = targetSection.bars[barIdx];
-
-        if (targetBar && targetBar.announceBar) {
-          upcomingAnnouncement = {
-            type: 'bar',
-            barNumber: currentAbsoluteBar + 2,
-            phase: 'intro' // We're 2 bars before
-          };
-        }
-      }
-
-      // Check if we're 2 bars before a section transition with announcement
-      barsAhead = 0;
-      sectionIdx = this.currentSectionIndex;
-      barIdx = this.currentBarInSection;
-
-      for (let i = 0; i < 2; i++) {
-        barIdx++;
-        if (barIdx >= this.scoreData.sections[sectionIdx].bars.length) {
-          sectionIdx++;
-          barIdx = 0;
-          if (sectionIdx >= this.scoreData.sections.length) break;
-        }
-        barsAhead++;
-      }
-
-      if (barsAhead === 2 && sectionIdx < this.scoreData.sections.length && sectionIdx !== this.currentSectionIndex) {
-        const targetSection = this.scoreData.sections[sectionIdx];
-        if (targetSection.announceSection) {
-          // Section announcement takes priority
-          upcomingAnnouncement = {
-            type: 'section',
-            sectionName: targetSection.name,
-            phase: 'intro'
-          };
-        }
-      }
-
-      // Also check 1 bar ahead for countdown phase
-      if (!upcomingAnnouncement) {
-        sectionIdx = this.currentSectionIndex;
-        barIdx = this.currentBarInSection + 1;
-
-        if (barIdx >= currentSection.bars.length) {
-          sectionIdx++;
-          barIdx = 0;
-        }
-
-        if (sectionIdx < this.scoreData.sections.length) {
-          const nextSection = this.scoreData.sections[sectionIdx];
-          const nextBar = nextSection.bars[barIdx];
-
-          if (nextBar && nextBar.announceBar) {
-            upcomingAnnouncement = {
-              type: 'bar',
-              barNumber: currentAbsoluteBar + 1,
-              phase: 'countdown'
-            };
-          } else if (sectionIdx !== this.currentSectionIndex && nextSection.announceSection) {
-            upcomingAnnouncement = {
-              type: 'section',
-              sectionName: nextSection.name,
-              phase: 'countdown'
-            };
-          }
-        }
-      }
-    }
-
     return {
       isPlaying: true,
       barNumber: barInfo.absoluteNumber || 0,
@@ -1308,9 +1210,7 @@ class MetronomeServer {
       isTempoTransition: this.isInTempoTransition(),
       // Click track data
       serverTimestamp: Date.now(),
-      isAccent: isAccent,
-      // Announcement data
-      upcomingAnnouncement: upcomingAnnouncement
+      isAccent: isAccent
     };
   }
 }

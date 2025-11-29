@@ -24,83 +24,12 @@ let displaySettings = {
   chordColor: '#ffcc00'
 };
 
-// Voice Announcer Class
-class VoiceAnnouncer {
-  constructor() {
-    this.enabled = false;
-    this.lastAnnouncedBar = -1;
-    this.currentAnnouncement = null; // {type, barNumber/sectionName, beatsInBar}
-    this.announcedBeats = new Set(); // Track which beats we've announced
-  }
-
-  updateSettings(settings) {
-    this.enabled = settings.enabled && settings.mode === 'with-counts';
-  }
-
-  speak(text) {
-    if (!this.enabled) return;
-
-    // Use Speech Synthesis API
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.rate = 1.1; // Slightly faster for better timing
-    utterance.volume = 0.8;
-    window.speechSynthesis.speak(utterance);
-  }
-
-  onBeat(state) {
-    if (!this.enabled || !state.isPlaying || state.isCountoff || state.isFermata) return;
-
-    const announcement = state.upcomingAnnouncement;
-    if (!announcement) {
-      this.currentAnnouncement = null;
-      this.announcedBeats.clear();
-      return;
-    }
-
-    // Track announcement by bar to avoid duplicates
-    const announcementKey = `${state.barNumber}-${announcement.phase}`;
-    if (this.lastAnnouncedBar !== announcementKey) {
-      this.lastAnnouncedBar = announcementKey;
-      this.announcedBeats.clear();
-    }
-
-    const beat = state.beat;
-    const beatsInBar = state.timeSignature.beats;
-
-    // Avoid duplicate announcements within the same beat
-    if (this.announcedBeats.has(beat)) return;
-    this.announcedBeats.add(beat);
-
-    // Number words for counting
-    const numberWords = ['one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight',
-                         'nine', 'ten', 'eleven', 'twelve', 'thirteen', 'fourteen', 'fifteen', 'sixteen'];
-
-    if (announcement.phase === 'intro') {
-      // Phase 1: On last beat of bar N-2, say "Bar X in" or "Section in"
-      if (beat === beatsInBar - 1) {
-        const name = announcement.type === 'bar'
-          ? `Bar ${announcement.barNumber}`
-          : announcement.sectionName;
-        this.speak(`${name} in`);
-      }
-    } else if (announcement.phase === 'countdown') {
-      // Phase 2: On bar N-1, count down on each beat
-      // Beat 0: "four", Beat 1: "three", Beat 2: "two", Beat 3: "one"
-      if (beat < beatsInBar) {
-        const countWord = numberWords[beatsInBar - 1 - beat];
-        this.speak(countWord);
-      }
-    }
-  }
-}
-
 // Click Track Class
 class ClickTrack {
   constructor() {
     this.audioContext = null;
     this.enabled = false;
     this.volume = 0.75;
-    this.mode = 'clicks-only';
     this.serverTimeOffset = 0; // Difference between server and client time
     this.lastBeat = -1;
     this.lastBar = -1;
@@ -116,7 +45,6 @@ class ClickTrack {
   updateSettings(settings) {
     this.enabled = settings.enabled;
     this.volume = settings.volume / 100; // Convert 0-100 to 0-1
-    this.mode = settings.mode;
   }
 
   updateTimeOffset(serverTimestamp) {
@@ -185,9 +113,8 @@ class ClickTrack {
   }
 }
 
-// Create click track and voice announcer instances
+// Create click track instance
 const clickTrack = new ClickTrack();
-const voiceAnnouncer = new VoiceAnnouncer();
 
 // DOM elements
 const statusEl = document.getElementById('status');
@@ -273,7 +200,6 @@ socket.on('display-settings', (settings) => {
 socket.on('click-settings', (settings) => {
   console.log('Received click settings:', settings);
   clickTrack.updateSettings(settings);
-  voiceAnnouncer.updateSettings(settings);
   updateClickControlsUI(settings);
 });
 
@@ -360,9 +286,8 @@ socket.on('playback-stopped', () => {
 socket.on('state-update', (state) => {
   if (!state.isPlaying) return;
 
-  // Handle click track and voice announcements
+  // Handle click track
   clickTrack.onBeat(state);
-  voiceAnnouncer.onBeat(state);
 
   // Get first section's tempo for initial display
   let currentTempo = state.tempo || (scoreData && scoreData.sections && scoreData.sections[0] ? scoreData.sections[0].tempo : 120);

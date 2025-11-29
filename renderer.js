@@ -176,9 +176,6 @@ function setupEventListeners() {
   document.getElementById('clickEnabled').addEventListener('change', (e) => {
     updateClickSettings();
   });
-  document.getElementById('clickMode').addEventListener('change', (e) => {
-    updateClickSettings();
-  });
   document.getElementById('clickVolume').addEventListener('input', (e) => {
     document.getElementById('clickVolumeValue').textContent = e.target.value + '%';
     updateClickSettings();
@@ -334,7 +331,6 @@ function addSection() {
     tempo: previousTempo,
     timeSignature: { ...previousTimeSignature },
     tempoTransitionBars: 0,
-    announceSection: false,
     bars: [{
       chords: '',
       redirect: null,
@@ -354,7 +350,6 @@ function addSection() {
       daCapo: false,
       toCoda: false,
       fine: false,
-      announceBar: false
     }]
   });
   renderSections();
@@ -422,16 +417,6 @@ function renderSections() {
                  min="0"
                  max="${sectionIndex > 0 ? sections[sectionIndex - 1].bars.length : 0}"
                  ${sectionIndex === 0 ? 'disabled' : ''}>
-        </div>
-
-        <div class="section-field">
-          <label>
-            <input type="checkbox"
-                   class="section-announce"
-                   data-section="${sectionIndex}"
-                   ${section.announceSection ? 'checked' : ''}>
-            Announce section (countdown on last bar of previous section)
-          </label>
         </div>
 
         <div class="section-field">
@@ -686,17 +671,6 @@ function renderBarsForSection(sectionIndex) {
         </div>
 
         <div class="advanced-field">
-          <label>
-            <input type="checkbox"
-                   class="bar-announce"
-                   data-section="${sectionIndex}"
-                   data-bar="${barIndex}"
-                   ${bar.announceBar ? 'checked' : ''}>
-            Announce bar number (countdown on previous bar)
-          </label>
-        </div>
-
-        <div class="advanced-field">
           <label>OSC Trigger (send when bar starts):</label>
           <input type="text"
                  class="bar-osc-address"
@@ -769,15 +743,6 @@ function attachSectionEventListeners() {
     select.addEventListener('change', (e) => {
       const sectionIndex = parseInt(e.target.dataset.section);
       sections[sectionIndex].timeSignature.noteValue = parseInt(e.target.value);
-      updateServerIfRunning();
-    });
-  });
-
-  // Section announcement
-  document.querySelectorAll('.section-announce').forEach(checkbox => {
-    checkbox.addEventListener('change', (e) => {
-      const sectionIndex = parseInt(e.target.dataset.section);
-      sections[sectionIndex].announceSection = e.target.checked;
       updateServerIfRunning();
     });
   });
@@ -1077,15 +1042,6 @@ function attachSectionEventListeners() {
     input.addEventListener('blur', () => updateServerIfRunning());
   });
 
-  document.querySelectorAll('.bar-announce').forEach(checkbox => {
-    checkbox.addEventListener('change', (e) => {
-      const sectionIndex = parseInt(e.target.dataset.section);
-      const barIndex = parseInt(e.target.dataset.bar);
-      sections[sectionIndex].bars[barIndex].announceBar = e.target.checked;
-      updateServerIfRunning();
-    });
-  });
-
   // Delete section buttons
   document.querySelectorAll('.delete-section-btn').forEach(btn => {
     btn.addEventListener('click', (e) => {
@@ -1153,7 +1109,6 @@ function addBarsToSection(sectionIndex, count) {
       daCapo: false,
       toCoda: false,
       fine: false,
-      announceBar: false
     });
   }
   calculateTotalBars();
@@ -1688,8 +1643,7 @@ async function importMusicXML() {
                 tempo: currentTempo,
                 timeSignature: { ...currentTimeSignature },
                 tempoTransitionBars: 0,
-                announceSection: false,
-                bars: []
+                            bars: []
               };
             }
           }
@@ -1716,8 +1670,7 @@ async function importMusicXML() {
                   tempo: currentTempo,
                   timeSignature: { ...currentTimeSignature },
                   tempoTransitionBars: 0,
-                  announceSection: false,
-                  bars: []
+                                bars: []
                 };
               }
             }
@@ -1735,8 +1688,7 @@ async function importMusicXML() {
               tempo: currentTempo,
               timeSignature: { ...currentTimeSignature },
               tempoTransitionBars: 0,
-              announceSection: false,
-              bars: []
+                        bars: []
             };
           }
 
@@ -1747,8 +1699,7 @@ async function importMusicXML() {
               tempo: currentTempo,
               timeSignature: { ...currentTimeSignature },
               tempoTransitionBars: 0,
-              announceSection: false,
-              bars: []
+                        bars: []
             };
           }
 
@@ -1792,8 +1743,7 @@ async function importMusicXML() {
             daCapo: false,
             toCoda: false,
             fine: false,
-            announceBar: false
-          });
+                });
         });
 
         // Add final section
@@ -1809,8 +1759,7 @@ async function importMusicXML() {
           tempo: 120,
           timeSignature: { beats: 4, noteValue: 4 },
           tempoTransitionBars: 0,
-          announceSection: false,
-          bars: []
+                bars: []
         });
       }
 
@@ -2041,7 +1990,6 @@ async function updateMidiSettings() {
 async function updateClickSettings() {
   const clickSettings = {
     enabled: document.getElementById('clickEnabled').checked,
-    mode: document.getElementById('clickMode').value,
     volume: parseInt(document.getElementById('clickVolume').value) || 75
   };
 
