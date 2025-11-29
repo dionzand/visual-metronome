@@ -48,49 +48,46 @@ class VoiceAnnouncer {
   }
 
   onBeat(state) {
-    if (!this.enabled || !state.isPlaying || state.isCountoff) return;
+    if (!this.enabled || !state.isPlaying || state.isCountoff || state.isFermata) return;
 
-    // Check if we have a new announcement to make
-    if (state.upcomingAnnouncement && state.barNumber !== this.lastAnnouncedBar) {
-      // New bar with announcement - set it up
-      this.lastAnnouncedBar = state.barNumber;
-      this.currentAnnouncement = {
-        type: state.upcomingAnnouncement.type,
-        name: state.upcomingAnnouncement.type === 'bar'
-          ? `Bar ${state.upcomingAnnouncement.barNumber}`
-          : state.upcomingAnnouncement.sectionName,
-        beatsInBar: state.timeSignature.beats
-      };
-      this.announcedBeats.clear();
-    }
-
-    // If we don't have a current announcement, clear tracking
-    if (!state.upcomingAnnouncement) {
+    const announcement = state.upcomingAnnouncement;
+    if (!announcement) {
       this.currentAnnouncement = null;
       this.announcedBeats.clear();
+      return;
     }
 
-    // Make announcements during this bar for the upcoming bar/section
-    if (this.currentAnnouncement && !state.isFermata) {
-      const beat = state.beat;
-      const beatsInBar = this.currentAnnouncement.beatsInBar;
+    // Track announcement by bar to avoid duplicates
+    const announcementKey = `${state.barNumber}-${announcement.phase}`;
+    if (this.lastAnnouncedBar !== announcementKey) {
+      this.lastAnnouncedBar = announcementKey;
+      this.announcedBeats.clear();
+    }
 
-      // Avoid duplicate announcements
-      if (this.announcedBeats.has(beat)) return;
-      this.announcedBeats.add(beat);
+    const beat = state.beat;
+    const beatsInBar = state.timeSignature.beats;
 
-      // Number words for counting down
-      const numberWords = ['one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight',
-                           'nine', 'ten', 'eleven', 'twelve', 'thirteen', 'fourteen', 'fifteen', 'sixteen'];
+    // Avoid duplicate announcements within the same beat
+    if (this.announcedBeats.has(beat)) return;
+    this.announcedBeats.add(beat);
 
-      if (beat === 0) {
-        // First beat: Say "{Name} in {count}"
-        const countWord = numberWords[beatsInBar - 1]; // "four" for 4 beats
-        this.speak(`${this.currentAnnouncement.name} in ${countWord}`);
-      } else if (beat < beatsInBar) {
-        // Subsequent beats: Count down
-        const remaining = beatsInBar - beat; // beats remaining
-        const countWord = numberWords[remaining - 1];
+    // Number words for counting
+    const numberWords = ['one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight',
+                         'nine', 'ten', 'eleven', 'twelve', 'thirteen', 'fourteen', 'fifteen', 'sixteen'];
+
+    if (announcement.phase === 'intro') {
+      // Phase 1: On last beat of bar N-2, say "Bar X in" or "Section in"
+      if (beat === beatsInBar - 1) {
+        const name = announcement.type === 'bar'
+          ? `Bar ${announcement.barNumber}`
+          : announcement.sectionName;
+        this.speak(`${name} in`);
+      }
+    } else if (announcement.phase === 'countdown') {
+      // Phase 2: On bar N-1, count down on each beat
+      // Beat 0: "four", Beat 1: "three", Beat 2: "two", Beat 3: "one"
+      if (beat < beatsInBar) {
+        const countWord = numberWords[beatsInBar - 1 - beat];
         this.speak(countWord);
       }
     }
