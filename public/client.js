@@ -35,6 +35,7 @@ class ClickTrack {
     this.lastBeat = -1;
     this.lastBar = -1;
     this.audioContextStartTime = 0; // When AudioContext was created (Date.now())
+    this.audioContextStartAudioTime = 0; // AudioContext.currentTime when created
   }
 
   init() {
@@ -42,7 +43,14 @@ class ClickTrack {
     if (!this.audioContext) {
       this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
       this.audioContextStartTime = Date.now();
+      this.audioContextStartAudioTime = this.audioContext.currentTime;
     }
+  }
+
+  stop() {
+    // Reset state when playback stops
+    this.lastBeat = -1;
+    this.lastBar = -1;
   }
 
   updateSettings(settings) {
@@ -54,12 +62,14 @@ class ClickTrack {
     this.manualOffset = offsetMs;
     // Save to localStorage for persistence
     localStorage.setItem('clickTrackManualOffset', offsetMs.toString());
+    console.log('Manual sync offset set to:', offsetMs, 'ms');
   }
 
   loadManualOffset() {
     const saved = localStorage.getItem('clickTrackManualOffset');
     if (saved !== null) {
       this.manualOffset = parseFloat(saved);
+      console.log('Loaded manual sync offset:', this.manualOffset, 'ms');
     }
   }
 
@@ -81,15 +91,19 @@ class ClickTrack {
    * Convert server timestamp (Date.now() format) to AudioContext time
    */
   serverTimeToAudioTime(serverTimeMs) {
-    // Convert server time to client time
+    // Convert server time to client time using measured offset
     const clientTimeMs = serverTimeMs - this.serverTimeOffset;
 
-    // Convert client time to AudioContext time
-    const elapsedSinceContextStart = clientTimeMs - this.audioContextStartTime;
-    const audioTime = elapsedSinceContextStart / 1000; // Convert to seconds
+    // Calculate elapsed time since AudioContext was created
+    const elapsedMs = clientTimeMs - this.audioContextStartTime;
+
+    // Convert to AudioContext time (seconds since context start)
+    const audioTime = this.audioContextStartAudioTime + (elapsedMs / 1000);
 
     // Add manual offset (convert ms to seconds)
-    return audioTime + (this.manualOffset / 1000);
+    const adjustedTime = audioTime + (this.manualOffset / 1000);
+
+    return adjustedTime;
   }
 
   playClick(isAccent, when = null) {
@@ -99,10 +113,13 @@ class ClickTrack {
     const playTime = when !== null ? when : now;
 
     // Don't schedule in the past (with small tolerance for jitter)
-    if (playTime < now - 0.01) {
-      console.warn('Click scheduled in past, skipping:', playTime - now);
+    if (playTime < now - 0.05) {
+      console.warn('Click scheduled too far in past, skipping:', (playTime - now).toFixed(3), 's');
       return;
     }
+
+    // If slightly in past, play immediately
+    const actualPlayTime = playTime < now ? now : playTime;
 
     // Create oscillator for beep sound
     const osc = this.audioContext.createOscillator();
@@ -113,16 +130,16 @@ class ClickTrack {
 
     // Volume envelope
     gainNode.gain.value = 0;
-    gainNode.gain.setValueAtTime(0, playTime);
-    gainNode.gain.linearRampToValueAtTime(this.volume * (isAccent ? 1.0 : 0.6), playTime + 0.001);
-    gainNode.gain.exponentialRampToValueAtTime(0.01, playTime + 0.05);
+    gainNode.gain.setValueAtTime(0, actualPlayTime);
+    gainNode.gain.linearRampToValueAtTime(this.volume * (isAccent ? 1.0 : 0.6), actualPlayTime + 0.001);
+    gainNode.gain.exponentialRampToValueAtTime(0.01, actualPlayTime + 0.05);
 
     // Connect and play
     osc.connect(gainNode);
     gainNode.connect(this.audioContext.destination);
 
-    osc.start(playTime);
-    osc.stop(playTime + 0.05);
+    osc.start(actualPlayTime);
+    osc.stop(actualPlayTime + 0.05);
   }
 
   onBeat(state) {
@@ -261,8 +278,13 @@ function updateClickControlsUI(settings) {
     clickControlsEl.style.display = 'block';
     clickStatusIconEl.textContent = '🔊';
     clickStatusTextEl.textContent = 'Click: ON';
+
+    // Update volume slider display
     clientVolumeSlider.value = settings.volume;
     clientVolumeValue.textContent = settings.volume + '%';
+
+    // Also update the actual click track volume
+    clickTrack.volume = settings.volume / 100;
   } else {
     clickControlsEl.style.display = 'none';
   }
@@ -270,13 +292,21 @@ function updateClickControlsUI(settings) {
 
 // Client-side volume and sync controls
 document.addEventListener('DOMContentLoaded', () => {
+  console.log('Client controls initializing...');
+
   const clientVolumeSlider = document.getElementById('clientClickVolume');
   const clientVolumeValue = document.getElementById('clientClickVolumeValue');
+
+  if (!clientVolumeSlider || !clientVolumeValue) {
+    console.error('Volume control elements not found!');
+    return;
+  }
 
   clientVolumeSlider.addEventListener('input', (e) => {
     const volume = parseInt(e.target.value);
     clientVolumeValue.textContent = volume + '%';
-    clickTrack.volume = volume / 100; // Update click track volume directly
+    clickTrack.volume = volume / 100;
+    console.log('Client volume changed to:', volume, '%');
   });
 
   // Sync adjustment controls
@@ -284,6 +314,11 @@ document.addEventListener('DOMContentLoaded', () => {
   const syncPlus = document.getElementById('syncPlus');
   const syncMinus = document.getElementById('syncMinus');
   const syncReset = document.getElementById('syncReset');
+
+  if (!syncOffsetValue || !syncPlus || !syncMinus || !syncReset) {
+    console.error('Sync control elements not found!');
+    return;
+  }
 
   function updateSyncDisplay() {
     const offset = clickTrack.manualOffset;
@@ -309,6 +344,8 @@ document.addEventListener('DOMContentLoaded', () => {
   // Load and display saved offset
   clickTrack.loadManualOffset();
   updateSyncDisplay();
+
+  console.log('Client controls initialized successfully');
 });
 
 socket.on('playback-started', () => {
@@ -321,6 +358,9 @@ socket.on('playback-paused', () => {
   console.log('Playback paused');
   waitingMessageEl.style.display = 'block';
   waitingMessageEl.textContent = 'Paused';
+
+  // Stop click track
+  clickTrack.stop();
 });
 
 socket.on('playback-stopped', () => {
@@ -334,6 +374,9 @@ socket.on('playback-stopped', () => {
   timeSignatureEl.textContent = '';
   progressLineEl.style.left = '0%';
   progressTrailEl.style.left = '0%';
+
+  // Stop click track
+  clickTrack.stop();
 
   // Hide fermata elements
   fermataSymbolEl.classList.remove('active');
