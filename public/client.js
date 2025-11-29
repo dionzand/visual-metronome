@@ -30,21 +30,37 @@ class ClickTrack {
     this.audioContext = null;
     this.enabled = false;
     this.volume = 0.75;
-    this.serverTimeOffset = 0; // Difference between server and client time
+    this.serverTimeOffset = 0; // Difference between server and client time (ms)
+    this.manualOffset = 0; // Manual fine-tune adjustment (ms)
     this.lastBeat = -1;
     this.lastBar = -1;
+    this.audioContextStartTime = 0; // When AudioContext was created (Date.now())
   }
 
   init() {
     // Create AudioContext on first user interaction to avoid browser restrictions
     if (!this.audioContext) {
       this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+      this.audioContextStartTime = Date.now();
     }
   }
 
   updateSettings(settings) {
     this.enabled = settings.enabled;
     this.volume = settings.volume / 100; // Convert 0-100 to 0-1
+  }
+
+  setManualOffset(offsetMs) {
+    this.manualOffset = offsetMs;
+    // Save to localStorage for persistence
+    localStorage.setItem('clickTrackManualOffset', offsetMs.toString());
+  }
+
+  loadManualOffset() {
+    const saved = localStorage.getItem('clickTrackManualOffset');
+    if (saved !== null) {
+      this.manualOffset = parseFloat(saved);
+    }
   }
 
   updateTimeOffset(serverTimestamp) {
@@ -56,15 +72,37 @@ class ClickTrack {
     if (this.serverTimeOffset === 0) {
       this.serverTimeOffset = newOffset;
     } else {
-      this.serverTimeOffset = this.serverTimeOffset * 0.9 + newOffset * 0.1;
+      // Slower smoothing (0.95/0.05) for more stable offset
+      this.serverTimeOffset = this.serverTimeOffset * 0.95 + newOffset * 0.05;
     }
+  }
+
+  /**
+   * Convert server timestamp (Date.now() format) to AudioContext time
+   */
+  serverTimeToAudioTime(serverTimeMs) {
+    // Convert server time to client time
+    const clientTimeMs = serverTimeMs - this.serverTimeOffset;
+
+    // Convert client time to AudioContext time
+    const elapsedSinceContextStart = clientTimeMs - this.audioContextStartTime;
+    const audioTime = elapsedSinceContextStart / 1000; // Convert to seconds
+
+    // Add manual offset (convert ms to seconds)
+    return audioTime + (this.manualOffset / 1000);
   }
 
   playClick(isAccent, when = null) {
     if (!this.enabled || !this.audioContext) return;
 
     const now = this.audioContext.currentTime;
-    const playTime = when || now;
+    const playTime = when !== null ? when : now;
+
+    // Don't schedule in the past (with small tolerance for jitter)
+    if (playTime < now - 0.01) {
+      console.warn('Click scheduled in past, skipping:', playTime - now);
+      return;
+    }
 
     // Create oscillator for beep sound
     const osc = this.audioContext.createOscillator();
@@ -93,6 +131,7 @@ class ClickTrack {
     // Initialize AudioContext if needed
     if (!this.audioContext) {
       this.init();
+      this.loadManualOffset();
     }
 
     // Update time offset for sync
@@ -107,7 +146,15 @@ class ClickTrack {
 
       // Don't play click during fermata
       if (!state.isFermata) {
-        this.playClick(state.isAccent);
+        // Calculate when this beat actually occurred on server
+        // Assume the beat just started (within last 16ms at 60Hz update rate)
+        const beatStartServerTime = state.serverTimestamp;
+
+        // Convert to AudioContext time with sync compensation
+        const audioTime = this.serverTimeToAudioTime(beatStartServerTime);
+
+        // Schedule the click at the synchronized time
+        this.playClick(state.isAccent, audioTime);
       }
     }
   }
@@ -221,7 +268,7 @@ function updateClickControlsUI(settings) {
   }
 }
 
-// Client-side volume control
+// Client-side volume and sync controls
 document.addEventListener('DOMContentLoaded', () => {
   const clientVolumeSlider = document.getElementById('clientClickVolume');
   const clientVolumeValue = document.getElementById('clientClickVolumeValue');
@@ -231,6 +278,37 @@ document.addEventListener('DOMContentLoaded', () => {
     clientVolumeValue.textContent = volume + '%';
     clickTrack.volume = volume / 100; // Update click track volume directly
   });
+
+  // Sync adjustment controls
+  const syncOffsetValue = document.getElementById('syncOffsetValue');
+  const syncPlus = document.getElementById('syncPlus');
+  const syncMinus = document.getElementById('syncMinus');
+  const syncReset = document.getElementById('syncReset');
+
+  function updateSyncDisplay() {
+    const offset = clickTrack.manualOffset;
+    const sign = offset >= 0 ? '+' : '';
+    syncOffsetValue.textContent = `${sign}${offset}ms`;
+  }
+
+  syncPlus.addEventListener('click', () => {
+    clickTrack.setManualOffset(clickTrack.manualOffset + 1);
+    updateSyncDisplay();
+  });
+
+  syncMinus.addEventListener('click', () => {
+    clickTrack.setManualOffset(clickTrack.manualOffset - 1);
+    updateSyncDisplay();
+  });
+
+  syncReset.addEventListener('click', () => {
+    clickTrack.setManualOffset(0);
+    updateSyncDisplay();
+  });
+
+  // Load and display saved offset
+  clickTrack.loadManualOffset();
+  updateSyncDisplay();
 });
 
 socket.on('playback-started', () => {

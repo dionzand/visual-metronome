@@ -285,6 +285,46 @@
       color: rgba(255, 255, 255, 0.9);
       min-width: 35px;
     }
+
+    .click-sync-control {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.85em;
+      margin-top: 8px;
+      padding-top: 8px;
+      border-top: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .click-sync-control label {
+      color: rgba(255, 255, 255, 0.7);
+    }
+
+    .click-sync-control button {
+      background: rgba(255, 255, 255, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.3);
+      color: white;
+      padding: 4px 10px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 0.9em;
+      font-weight: 600;
+    }
+
+    .click-sync-control button:hover {
+      background: rgba(255, 255, 255, 0.2);
+    }
+
+    .click-sync-control button:active {
+      background: rgba(255, 255, 255, 0.3);
+    }
+
+    .click-sync-control span {
+      color: rgba(255, 255, 255, 0.9);
+      min-width: 45px;
+      text-align: center;
+      font-family: monospace;
+    }
   </style>
 </head>
 <body>
@@ -320,6 +360,13 @@
       <label>Vol:</label>
       <input type="range" id="clientClickVolume" min="0" max="100" value="75" step="5">
       <span id="clientClickVolumeValue">75%</span>
+    </div>
+    <div class="click-sync-control">
+      <label>Sync:</label>
+      <button id="syncMinus" title="Delay click by 1ms">-</button>
+      <span id="syncOffsetValue">0ms</span>
+      <button id="syncPlus" title="Advance click by 1ms">+</button>
+      <button id="syncReset" title="Reset to 0">↻</button>
     </div>
   </div>
 
