@@ -167,15 +167,13 @@ class ClickTrack {
 
       // Don't play click during fermata
       if (!state.isFermata) {
-        // Calculate when this beat actually occurred on server
-        // Assume the beat just started (within last 16ms at 60Hz update rate)
-        const beatStartServerTime = state.serverTimestamp;
+        // Play immediately with manual delay offset
+        const now = this.audioContext.currentTime;
+        const playTime = now + (this.manualOffset / 1000); // Add manual delay in seconds
 
-        // Convert to AudioContext time with sync compensation
-        const audioTime = this.serverTimeToAudioTime(beatStartServerTime);
+        console.log(`Beat ${state.beat}, bar ${state.barNumber}, accent: ${state.isAccent}, delay: ${this.manualOffset}ms`);
 
-        // Schedule the click at the synchronized time
-        this.playClick(state.isAccent, audioTime);
+        this.playClick(state.isAccent, playTime);
       }
     }
   }
