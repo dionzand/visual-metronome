@@ -31,7 +31,7 @@ class ClickTrack {
     this.enabled = false;
     this.volume = 0.75;
     this.serverTimeOffset = 0; // Difference between server and client time (ms)
-    this.manualOffset = 0; // Manual fine-tune adjustment (ms)
+    this.manualOffset = 0; // Manual delay adjustment (ms, positive only - delays clicks to sync with fastest device)
     this.lastBeat = -1;
     this.lastBar = -1;
     this.audioContextStartTime = 0; // When AudioContext was created (Date.now())
@@ -59,17 +59,19 @@ class ClickTrack {
   }
 
   setManualOffset(offsetMs) {
-    this.manualOffset = offsetMs;
+    // Clamp to positive values only (delay only, can't advance)
+    this.manualOffset = Math.max(0, offsetMs);
     // Save to localStorage for persistence
-    localStorage.setItem('clickTrackManualOffset', offsetMs.toString());
-    console.log('Manual sync offset set to:', offsetMs, 'ms');
+    localStorage.setItem('clickTrackManualOffset', this.manualOffset.toString());
+    console.log('Manual delay set to:', this.manualOffset, 'ms');
   }
 
   loadManualOffset() {
     const saved = localStorage.getItem('clickTrackManualOffset');
     if (saved !== null) {
-      this.manualOffset = parseFloat(saved);
-      console.log('Loaded manual sync offset:', this.manualOffset, 'ms');
+      // Clamp to positive values
+      this.manualOffset = Math.max(0, parseFloat(saved));
+      console.log('Loaded manual delay:', this.manualOffset, 'ms');
     }
   }
 
@@ -89,6 +91,7 @@ class ClickTrack {
 
   /**
    * Convert server timestamp (Date.now() format) to AudioContext time
+   * Adds manual delay for fine-tuning sync across devices
    */
   serverTimeToAudioTime(serverTimeMs) {
     // Convert server time to client time using measured offset
@@ -100,7 +103,8 @@ class ClickTrack {
     // Convert to AudioContext time (seconds since context start)
     const audioTime = this.audioContextStartAudioTime + (elapsedMs / 1000);
 
-    // Add manual offset (convert ms to seconds)
+    // Add manual delay (convert ms to seconds, positive only)
+    // This delays clicks to match the fastest/earliest device
     const adjustedTime = audioTime + (this.manualOffset / 1000);
 
     return adjustedTime;
@@ -309,30 +313,23 @@ document.addEventListener('DOMContentLoaded', () => {
     console.log('Client volume changed to:', volume, '%');
   });
 
-  // Sync adjustment controls
+  // Delay adjustment controls (positive values only - delay to match fastest device)
   const syncOffsetValue = document.getElementById('syncOffsetValue');
   const syncPlus = document.getElementById('syncPlus');
-  const syncMinus = document.getElementById('syncMinus');
   const syncReset = document.getElementById('syncReset');
 
-  if (!syncOffsetValue || !syncPlus || !syncMinus || !syncReset) {
-    console.error('Sync control elements not found!');
+  if (!syncOffsetValue || !syncPlus || !syncReset) {
+    console.error('Delay control elements not found!');
     return;
   }
 
   function updateSyncDisplay() {
     const offset = clickTrack.manualOffset;
-    const sign = offset >= 0 ? '+' : '';
-    syncOffsetValue.textContent = `${sign}${offset}ms`;
+    syncOffsetValue.textContent = `${offset}ms`;
   }
 
   syncPlus.addEventListener('click', () => {
     clickTrack.setManualOffset(clickTrack.manualOffset + 1);
-    updateSyncDisplay();
-  });
-
-  syncMinus.addEventListener('click', () => {
-    clickTrack.setManualOffset(clickTrack.manualOffset - 1);
     updateSyncDisplay();
   });
 
