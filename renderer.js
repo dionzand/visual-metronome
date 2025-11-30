@@ -1820,7 +1820,24 @@ async function startServer() {
     updateSetlistControls();
     updateSongSelect();
 
-    await showAlert(`Server started!\nOpen this URL on client devices:\n${result.url}`);
+    // Build alert message
+    let message = `Server started!\nOpen this URL on client devices:\n${result.url}`;
+
+    // Add port change warning if applicable
+    if (result.portChanged) {
+      message += `\n\n⚠️ Port ${port} was unavailable. Using port ${result.port} instead.`;
+    }
+
+    // Add firewall warning if server not reachable
+    if (!result.reachable) {
+      message += `\n\n⚠️ FIREWALL WARNING\nServer may not be reachable from network.\n\nTo fix:\n1. Allow port ${result.port} in Windows Firewall\n2. Or try different ports: 3001, 8080, 8000`;
+    } else {
+      message += `\n\n✓ Server is reachable from network`;
+    }
+
+    await showAlert(message);
+  } else {
+    await showAlert(`Failed to start server!\n${result.error}\n\nTry these ports: ${result.suggestedPorts.join(', ')}`);
   }
 }
 

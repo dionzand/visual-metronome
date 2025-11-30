@@ -164,12 +164,49 @@ ipcMain.handle('start-server', async (event, data) => {
   }
 
   const { scoreData, displaySettings, repeatSong, oscSettings, midiSettings, port } = data;
-  metronomeServer = new MetronomeServer(scoreData, displaySettings, repeatSong, oscSettings, midiSettings);
-  const actualPort = await metronomeServer.start(port || 3000);
+  const requestedPort = port || 3000;
+
+  // Try to start server with port fallback
+  const suggestedPorts = [requestedPort, 3001, 3002, 8080, 8000, 5000];
+  let startResult = null;
+  let attemptedPort = null;
+
+  for (const tryPort of suggestedPorts) {
+    try {
+      metronomeServer = new MetronomeServer(scoreData, displaySettings, repeatSong, oscSettings, midiSettings);
+      startResult = await metronomeServer.start(tryPort);
+      attemptedPort = tryPort;
+      break; // Success!
+    } catch (err) {
+      console.log(`Port ${tryPort} failed, trying next...`);
+      if (metronomeServer) {
+        try { metronomeServer.stop(); } catch (e) {}
+        metronomeServer = null;
+      }
+    }
+  }
+
+  if (!startResult) {
+    return {
+      success: false,
+      error: 'All ports failed. Check firewall settings.',
+      suggestedPorts: suggestedPorts
+    };
+  }
+
   setupServerCallbacks();
 
   const localIP = getLocalIP();
-  return { success: true, port: actualPort, url: `https://${localIP}:${actualPort}` };
+  const { port: actualPort, reachable } = startResult;
+
+  return {
+    success: true,
+    port: actualPort,
+    url: `https://${localIP}:${actualPort}`,
+    reachable: reachable,
+    portChanged: actualPort !== requestedPort,
+    warning: !reachable ? 'Server started but may not be reachable from network. Check firewall settings.' : null
+  };
 });
 
 ipcMain.handle('update-display-settings', async (event, displaySettings) => {

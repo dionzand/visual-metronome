@@ -387,8 +387,8 @@ class MetronomeServer {
 
     // Start HTTPS server
     const httpsPromise = new Promise((resolve, reject) => {
-      this.httpServer.listen(port, () => {
-        console.log(`Metronome HTTPS server started on port ${port}`);
+      this.httpServer.listen(port, '0.0.0.0', () => {
+        console.log(`Metronome HTTPS server started on port ${port} (listening on all interfaces)`);
         resolve(port);
       });
 
@@ -401,7 +401,60 @@ class MetronomeServer {
     // Try to start HTTP redirect server on port 80 (optional)
     this.startHttpRedirect(port);
 
-    return httpsPromise;
+    const actualPort = await httpsPromise;
+
+    // Test if server is reachable
+    const reachable = await this.testServerReachability(actualPort);
+    console.log(`Server reachability test: ${reachable ? 'PASS' : 'FAIL (possible firewall issue)'}`);
+
+    return { port: actualPort, reachable };
+  }
+
+  async testServerReachability(port) {
+    // Try to connect to ourselves to verify server is accessible
+    const os = require('os');
+    const https = require('https');
+
+    // Get local IP
+    const interfaces = os.networkInterfaces();
+    let localIP = '127.0.0.1';
+
+    for (const name of Object.keys(interfaces)) {
+      for (const iface of interfaces[name]) {
+        if (iface.family === 'IPv4' && !iface.internal) {
+          localIP = iface.address;
+          break;
+        }
+      }
+    }
+
+    return new Promise((resolve) => {
+      const options = {
+        hostname: localIP,
+        port: port,
+        path: '/',
+        method: 'GET',
+        rejectUnauthorized: false, // Accept self-signed cert
+        timeout: 2000
+      };
+
+      const req = https.request(options, (res) => {
+        // If we get any response, server is reachable
+        resolve(true);
+      });
+
+      req.on('error', (err) => {
+        console.warn(`Connectivity test failed: ${err.message}`);
+        resolve(false);
+      });
+
+      req.on('timeout', () => {
+        req.destroy();
+        resolve(false);
+      });
+
+      req.end();
+    });
   }
 
   startHttpRedirect(httpsPort) {
