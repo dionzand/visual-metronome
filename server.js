@@ -403,11 +403,46 @@ class MetronomeServer {
 
     const actualPort = await httpsPromise;
 
+    // Detect network type
+    const networkType = await this.detectNetworkType();
+
     // Test if server is reachable
     const reachable = await this.testServerReachability(actualPort);
     console.log(`Server reachability test: ${reachable ? 'PASS' : 'FAIL (possible firewall issue)'}`);
 
-    return { port: actualPort, reachable };
+    // Determine if network might have client isolation
+    const isPublicNetwork = networkType === 'Public';
+    const likelyClientIsolation = isPublicNetwork && !reachable;
+
+    return {
+      port: actualPort,
+      reachable,
+      networkType,
+      isPublicNetwork,
+      likelyClientIsolation
+    };
+  }
+
+  async detectNetworkType() {
+    // Detect Windows network profile type using PowerShell
+    const { exec } = require('child_process');
+
+    return new Promise((resolve) => {
+      // Get network category (Public, Private, Domain)
+      const cmd = 'powershell -Command "Get-NetConnectionProfile | Select-Object -ExpandProperty NetworkCategory"';
+
+      exec(cmd, (error, stdout, stderr) => {
+        if (error) {
+          console.warn('Could not detect network type:', error.message);
+          resolve('Unknown');
+          return;
+        }
+
+        const networkType = stdout.trim();
+        console.log('Network type detected:', networkType);
+        resolve(networkType);
+      });
+    });
   }
 
   async testServerReachability(port) {

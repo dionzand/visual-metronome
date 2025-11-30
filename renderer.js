@@ -1828,11 +1828,30 @@ async function startServer() {
       message += `\n\n⚠️ Port ${port} was unavailable. Using port ${result.port} instead.`;
     }
 
-    // Add firewall warning if server not reachable
-    if (!result.reachable) {
-      message += `\n\n⚠️ FIREWALL WARNING\nServer may not be reachable from network.\n\nTo fix:\n1. Allow port ${result.port} in Windows Firewall\n2. Or try different ports: 3001, 8080, 8000`;
+    // Add client isolation warning (highest priority)
+    if (result.likelyClientIsolation) {
+      message += `\n\n⚠️ CLIENT ISOLATION DETECTED\nYou are on a Public network which blocks device-to-device communication.`;
+      message += `\n\nSolutions:`;
+      message += `\n1. Create WiFi Hotspot:`;
+      message += `\n   - Open Settings > Network & Internet > Mobile hotspot`;
+      message += `\n   - Turn on "Share my Internet connection"`;
+      message += `\n   - Connect devices to this hotspot`;
+      message += `\n2. Change network profile to Private:`;
+      message += `\n   - Settings > Network & Internet > Wi-Fi`;
+      message += `\n   - Click your network > Network profile: Private`;
+      message += `\n3. Use a home/office router instead of public WiFi`;
+    } else if (!result.reachable) {
+      // Firewall warning (if not client isolation)
+      message += `\n\n⚠️ FIREWALL WARNING\nServer may not be reachable from network.`;
+      message += `\n\nTo fix:`;
+      message += `\n1. Allow port ${result.port} in Windows Firewall`;
+      message += `\n2. Or try different ports: 3001, 8080, 8000`;
     } else {
+      // Success message
       message += `\n\n✓ Server is reachable from network`;
+      if (result.networkType) {
+        message += ` (Network: ${result.networkType})`;
+      }
     }
 
     await showAlert(message);
