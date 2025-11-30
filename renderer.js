@@ -1779,13 +1779,7 @@ async function startServer() {
   // Show loading indicator
   document.getElementById('startServer').disabled = true;
   document.getElementById('serverLoading').style.display = 'block';
-  const tunnelEnabled = document.getElementById('enableTunnel').checked;
-
-  if (tunnelEnabled) {
-    document.getElementById('serverLoadingText').textContent = 'Creating tunnel (this may take a moment)...';
-  } else {
-    document.getElementById('serverLoadingText').textContent = 'Starting server...';
-  }
+  document.getElementById('serverLoadingText').textContent = 'Starting server...';
 
   // Use setlist song if available, otherwise use current score editor
   let scoreData;
@@ -1818,7 +1812,7 @@ async function startServer() {
   // Read port from UI
   const port = parseInt(document.getElementById('serverPort').value) || 3000;
 
-  const result = await ipcRenderer.invoke('start-server', { scoreData, displaySettings, repeatSong, oscSettings, midiSettings, port, tunnelEnabled });
+  const result = await ipcRenderer.invoke('start-server', { scoreData, displaySettings, repeatSong, oscSettings, midiSettings, port });
 
   // Hide loading indicator
   document.getElementById('serverLoading').style.display = 'none';
@@ -1828,22 +1822,6 @@ async function startServer() {
     document.getElementById('serverStatus').textContent = `Server: Running on port ${result.port}`;
     document.getElementById('serverStatus').classList.add('running');
     document.getElementById('serverUrl').textContent = result.url;
-
-    // Display tunnel URL and password if available
-    if (result.tunnelUrl) {
-      document.getElementById('tunnelUrl').textContent = `Tunnel: ${result.tunnelUrl}`;
-      document.getElementById('tunnelUrl').style.display = 'block';
-
-      if (result.tunnelPassword) {
-        document.getElementById('tunnelPassword').textContent = `Password: ${result.tunnelPassword}`;
-        document.getElementById('tunnelPassword').style.display = 'block';
-      } else {
-        document.getElementById('tunnelPassword').style.display = 'none';
-      }
-    } else {
-      document.getElementById('tunnelUrl').style.display = 'none';
-      document.getElementById('tunnelPassword').style.display = 'none';
-    }
 
     document.getElementById('startServer').disabled = true;
     document.getElementById('stopServer').disabled = false;
@@ -1855,54 +1833,33 @@ async function startServer() {
     updateSongSelect();
 
     // Build alert message
-    let message = `Server started!\n`;
-
-    // Show tunnel URL if enabled
-    if (result.tunnelUrl) {
-      message += `\n🌐 PUBLIC TUNNEL URL:\n${result.tunnelUrl}`;
-      if (result.tunnelPassword) {
-        message += `\n\n🔑 TUNNEL PASSWORD (required for first access):\n${result.tunnelPassword}`;
-        message += `\n\n📋 Share with clients:`;
-        message += `\n1. URL: ${result.tunnelUrl}`;
-        message += `\n2. Password: ${result.tunnelPassword}`;
-        message += `\n\nClients will be asked for the password once per device.`;
-      }
-      message += `\n\n⚠️ SECURITY WARNING:`;
-      message += `\nThis URL is publicly accessible from the internet.`;
-      message += `\nAnyone with the URL and password can connect.`;
-      message += `\nThe tunnel will close when you stop the server.`;
-      message += `\n\nLocal network URL:\n${result.url}`;
-    } else {
-      message += `Open this URL on client devices:\n${result.url}`;
-    }
+    let message = `Server started!\nOpen this URL on client devices:\n${result.url}`;
 
     // Add port change warning if applicable
     if (result.portChanged) {
       message += `\n\n⚠️ Port ${port} was unavailable. Using port ${result.port} instead.`;
     }
 
-    // Add client isolation warning (if tunnel not enabled)
-    if (!result.tunnelUrl && result.likelyClientIsolation) {
+    // Add client isolation warning
+    if (result.likelyClientIsolation) {
       message += `\n\n⚠️ CLIENT ISOLATION DETECTED\nYou are on a Public network which blocks device-to-device communication.`;
       message += `\n\nSolutions:`;
-      message += `\n1. Enable "Tunnel" checkbox and restart server`;
-      message += `\n2. Create WiFi Hotspot:`;
+      message += `\n1. Create WiFi Hotspot:`;
       message += `\n   - Open Settings > Network & Internet > Mobile hotspot`;
       message += `\n   - Turn on "Share my Internet connection"`;
       message += `\n   - Connect devices to this hotspot`;
-      message += `\n3. Change network profile to Private:`;
+      message += `\n2. Change network profile to Private:`;
       message += `\n   - Settings > Network & Internet > Wi-Fi`;
       message += `\n   - Click your network > Network profile: Private`;
-      message += `\n4. Use a home/office router instead of public WiFi`;
-    } else if (!result.tunnelUrl && !result.reachable) {
-      // Firewall warning (if not client isolation and no tunnel)
+      message += `\n3. Use a home/office router instead of public WiFi`;
+    } else if (!result.reachable) {
+      // Firewall warning
       message += `\n\n⚠️ FIREWALL WARNING\nServer may not be reachable from network.`;
       message += `\n\nTo fix:`;
-      message += `\n1. Enable "Tunnel" checkbox and restart server`;
-      message += `\n2. Allow port ${result.port} in Windows Firewall`;
-      message += `\n3. Or try different ports: 3001, 8080, 8000`;
-    } else if (!result.tunnelUrl) {
-      // Success message (no tunnel)
+      message += `\n1. Allow port ${result.port} in Windows Firewall`;
+      message += `\n2. Or try different ports: 3001, 8080, 8000`;
+    } else {
+      // Success message
       message += `\n\n✓ Server is reachable from network`;
       if (result.networkType) {
         message += ` (Network: ${result.networkType})`;
@@ -1923,10 +1880,6 @@ async function stopServer() {
   document.getElementById('serverStatus').textContent = 'Server: Stopped';
   document.getElementById('serverStatus').classList.remove('running');
   document.getElementById('serverUrl').textContent = '';
-  document.getElementById('tunnelUrl').textContent = '';
-  document.getElementById('tunnelUrl').style.display = 'none';
-  document.getElementById('tunnelPassword').textContent = '';
-  document.getElementById('tunnelPassword').style.display = 'none';
   document.getElementById('connectedClients').textContent = 'Clients: 0';
   document.getElementById('syncOffsetDisplay').textContent = '0 ms';
   document.getElementById('startServer').disabled = false;

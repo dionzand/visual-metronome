@@ -163,7 +163,7 @@ ipcMain.handle('start-server', async (event, data) => {
     metronomeServer.stop();
   }
 
-  const { scoreData, displaySettings, repeatSong, oscSettings, midiSettings, port, tunnelEnabled } = data;
+  const { scoreData, displaySettings, repeatSong, oscSettings, midiSettings, port } = data;
   const requestedPort = port || 3000;
 
   // Try to start server with port fallback
@@ -174,7 +174,7 @@ ipcMain.handle('start-server', async (event, data) => {
   for (const tryPort of suggestedPorts) {
     try {
       metronomeServer = new MetronomeServer(scoreData, displaySettings, repeatSong, oscSettings, midiSettings);
-      startResult = await metronomeServer.start(tryPort, tunnelEnabled || false);
+      startResult = await metronomeServer.start(tryPort);
       attemptedPort = tryPort;
       break; // Success!
     } catch (err) {
@@ -197,7 +197,7 @@ ipcMain.handle('start-server', async (event, data) => {
   setupServerCallbacks();
 
   const localIP = getLocalIP();
-  const { port: actualPort, reachable, networkType, isPublicNetwork, likelyClientIsolation, tunnelUrl, tunnelPassword } = startResult;
+  const { port: actualPort, reachable, networkType, isPublicNetwork, likelyClientIsolation } = startResult;
 
   return {
     success: true,
@@ -207,8 +207,6 @@ ipcMain.handle('start-server', async (event, data) => {
     networkType: networkType,
     isPublicNetwork: isPublicNetwork,
     likelyClientIsolation: likelyClientIsolation,
-    tunnelUrl: tunnelUrl,
-    tunnelPassword: tunnelPassword,
     portChanged: actualPort !== requestedPort,
     warning: !reachable ? 'Server started but may not be reachable from network. Check firewall settings.' : null
   };

@@ -86,15 +86,6 @@
             <label for="serverPort">Port:</label>
             <input type="number" id="serverPort" value="3000" min="1024" max="65535" style="width: 100px;">
           </div>
-          <div class="control-group">
-            <label>
-              <input type="checkbox" id="enableTunnel">
-              Enable Tunnel (bypass client isolation)
-            </label>
-            <div style="font-size: 0.85em; color: #999; margin-top: 4px;">
-              Creates a public URL accessible from any network
-            </div>
-          </div>
           <button id="startServer">Start Server</button>
           <button id="stopServer" disabled>Stop Server</button>
           <div id="serverStatus" class="status">Server: Stopped</div>
@@ -104,8 +95,6 @@
           </div>
           <div id="connectedClients" class="status">Clients: 0</div>
           <div id="serverUrl" class="url"></div>
-          <div id="tunnelUrl" class="url" style="display: none;"></div>
-          <div id="tunnelPassword" class="url" style="display: none; color: #ffcc00; font-weight: 600;"></div>
         </div>
       </div>
 
@@ -145,7 +134,7 @@
           <span id="tempoPercentageDisplay">100%</span>
           <button id="resetTempoPercentage">Reset</button>
         </div>
-        <div class="playback-controls">
+        <div class="playback-controls" style="margin-top: 20px;">
           <button id="play" disabled>Play</button>
           <button id="pause" disabled>Pause</button>
           <button id="stop" disabled>Stop</button>
@@ -153,6 +142,24 @@
         </div>
         <div class="keyboard-shortcuts-hint">
           Shortcuts: Space (Play/Pause) | S (Stop) | ← → (Prev/Next Song) | ↑ ↓ (Prev/Next Bar) | L (Loop Current Bar)
+        </div>
+      </div>
+
+      <div class="section">
+        <h2>Click Track Settings</h2>
+        <p class="info-text">Audio click track synchronized across all client devices.</p>
+        <div class="click-settings-grid">
+          <div class="setting">
+            <label for="clickEnabled">
+              <input type="checkbox" id="clickEnabled">
+              Enable Click Track
+            </label>
+          </div>
+          <div class="setting">
+            <label for="clickVolume">Volume:</label>
+            <input type="range" id="clickVolume" min="0" max="100" value="75">
+            <span id="clickVolumeValue">75%</span>
+          </div>
         </div>
       </div>
 
@@ -282,24 +289,6 @@
           </div>
         </div>
         <button id="testOsc" style="margin-top: 15px;">Test OSC Connection</button>
-      </div>
-
-      <div class="section">
-        <h2>Click Track Settings</h2>
-        <p class="info-text">Audio click track synchronized across all client devices.</p>
-        <div class="click-settings-grid">
-          <div class="setting">
-            <label for="clickEnabled">
-              <input type="checkbox" id="clickEnabled">
-              Enable Click Track
-            </label>
-          </div>
-          <div class="setting">
-            <label for="clickVolume">Volume:</label>
-            <input type="range" id="clickVolume" min="0" max="100" value="75">
-            <span id="clickVolumeValue">75%</span>
-          </div>
-        </div>
       </div>
 
       <div class="section">
