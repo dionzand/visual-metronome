@@ -104,6 +104,10 @@ class MetronomeServer {
     this.httpRedirectServer = null;
     this.httpsPort = null;
 
+    // LocalTunnel (for bypassing client isolation on public networks)
+    this.tunnel = null;
+    this.tunnelUrl = null;
+
     this.setupRoutes();
     this.setupSocketHandlers();
   }
@@ -382,7 +386,7 @@ class MetronomeServer {
     }
   }
 
-  async start(port = 3000) {
+  async start(port = 3000, tunnelEnabled = false) {
     this.httpsPort = port;
 
     // Start HTTPS server
@@ -414,12 +418,23 @@ class MetronomeServer {
     const isPublicNetwork = networkType === 'Public';
     const likelyClientIsolation = isPublicNetwork && !reachable;
 
+    // Create tunnel if requested (bypasses client isolation)
+    let tunnelUrl = null;
+    if (tunnelEnabled) {
+      try {
+        tunnelUrl = await this.createTunnel(actualPort);
+      } catch (err) {
+        console.error('Failed to create tunnel:', err.message);
+      }
+    }
+
     return {
       port: actualPort,
       reachable,
       networkType,
       isPublicNetwork,
-      likelyClientIsolation
+      likelyClientIsolation,
+      tunnelUrl
     };
   }
 
@@ -492,6 +507,40 @@ class MetronomeServer {
     });
   }
 
+  async createTunnel(port) {
+    // Create a public tunnel using localtunnel
+    // This bypasses client isolation on public networks
+    const localtunnel = require('localtunnel');
+
+    console.log('Creating tunnel to bypass client isolation...');
+
+    try {
+      this.tunnel = await localtunnel({
+        port: port,
+        local_host: 'localhost'
+      });
+
+      this.tunnelUrl = this.tunnel.url;
+      console.log(`Tunnel created: ${this.tunnelUrl}`);
+
+      // Handle tunnel close
+      this.tunnel.on('close', () => {
+        console.log('Tunnel closed');
+        this.tunnelUrl = null;
+      });
+
+      // Handle tunnel error
+      this.tunnel.on('error', (err) => {
+        console.error('Tunnel error:', err.message);
+      });
+
+      return this.tunnelUrl;
+    } catch (err) {
+      console.error('Failed to create tunnel:', err.message);
+      throw err;
+    }
+  }
+
   startHttpRedirect(httpsPort) {
     // Create simple HTTP server that redirects to HTTPS
     const redirectApp = express();
@@ -541,6 +590,12 @@ class MetronomeServer {
       this.stopMidiClock();
       this.midiOutput.close();
       this.midiOutput = null;
+    }
+    if (this.tunnel) {
+      this.tunnel.close();
+      this.tunnel = null;
+      this.tunnelUrl = null;
+      console.log('Tunnel closed');
     }
     if (this.httpRedirectServer) {
       this.httpRedirectServer.close();

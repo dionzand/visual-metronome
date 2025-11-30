@@ -1801,16 +1801,26 @@ async function startServer() {
   midiSettings.enabled = document.getElementById('midiEnabled').checked;
   midiSettings.outputPort = document.getElementById('midiOutput').value;
 
-  // Read port from UI
+  // Read port and tunnel settings from UI
   const port = parseInt(document.getElementById('serverPort').value) || 3000;
+  const tunnelEnabled = document.getElementById('enableTunnel').checked;
 
-  const result = await ipcRenderer.invoke('start-server', { scoreData, displaySettings, repeatSong, oscSettings, midiSettings, port });
+  const result = await ipcRenderer.invoke('start-server', { scoreData, displaySettings, repeatSong, oscSettings, midiSettings, port, tunnelEnabled });
 
   if (result.success) {
     serverRunning = true;
     document.getElementById('serverStatus').textContent = `Server: Running on port ${result.port}`;
     document.getElementById('serverStatus').classList.add('running');
     document.getElementById('serverUrl').textContent = result.url;
+
+    // Display tunnel URL if available
+    if (result.tunnelUrl) {
+      document.getElementById('tunnelUrl').textContent = `Tunnel: ${result.tunnelUrl}`;
+      document.getElementById('tunnelUrl').style.display = 'block';
+    } else {
+      document.getElementById('tunnelUrl').style.display = 'none';
+    }
+
     document.getElementById('startServer').disabled = true;
     document.getElementById('stopServer').disabled = false;
     document.getElementById('play').disabled = false;
@@ -1821,33 +1831,47 @@ async function startServer() {
     updateSongSelect();
 
     // Build alert message
-    let message = `Server started!\nOpen this URL on client devices:\n${result.url}`;
+    let message = `Server started!\n`;
+
+    // Show tunnel URL if enabled
+    if (result.tunnelUrl) {
+      message += `\n🌐 PUBLIC TUNNEL URL:\n${result.tunnelUrl}`;
+      message += `\n\n⚠️ SECURITY WARNING:`;
+      message += `\nThis URL is publicly accessible from the internet.`;
+      message += `\nAnyone with this URL can connect to your metronome.`;
+      message += `\nThe tunnel will close when you stop the server.`;
+      message += `\n\nLocal network URL:\n${result.url}`;
+    } else {
+      message += `Open this URL on client devices:\n${result.url}`;
+    }
 
     // Add port change warning if applicable
     if (result.portChanged) {
       message += `\n\n⚠️ Port ${port} was unavailable. Using port ${result.port} instead.`;
     }
 
-    // Add client isolation warning (highest priority)
-    if (result.likelyClientIsolation) {
+    // Add client isolation warning (if tunnel not enabled)
+    if (!result.tunnelUrl && result.likelyClientIsolation) {
       message += `\n\n⚠️ CLIENT ISOLATION DETECTED\nYou are on a Public network which blocks device-to-device communication.`;
       message += `\n\nSolutions:`;
-      message += `\n1. Create WiFi Hotspot:`;
+      message += `\n1. Enable "Tunnel" checkbox and restart server`;
+      message += `\n2. Create WiFi Hotspot:`;
       message += `\n   - Open Settings > Network & Internet > Mobile hotspot`;
       message += `\n   - Turn on "Share my Internet connection"`;
       message += `\n   - Connect devices to this hotspot`;
-      message += `\n2. Change network profile to Private:`;
+      message += `\n3. Change network profile to Private:`;
       message += `\n   - Settings > Network & Internet > Wi-Fi`;
       message += `\n   - Click your network > Network profile: Private`;
-      message += `\n3. Use a home/office router instead of public WiFi`;
-    } else if (!result.reachable) {
-      // Firewall warning (if not client isolation)
+      message += `\n4. Use a home/office router instead of public WiFi`;
+    } else if (!result.tunnelUrl && !result.reachable) {
+      // Firewall warning (if not client isolation and no tunnel)
       message += `\n\n⚠️ FIREWALL WARNING\nServer may not be reachable from network.`;
       message += `\n\nTo fix:`;
-      message += `\n1. Allow port ${result.port} in Windows Firewall`;
-      message += `\n2. Or try different ports: 3001, 8080, 8000`;
-    } else {
-      // Success message
+      message += `\n1. Enable "Tunnel" checkbox and restart server`;
+      message += `\n2. Allow port ${result.port} in Windows Firewall`;
+      message += `\n3. Or try different ports: 3001, 8080, 8000`;
+    } else if (!result.tunnelUrl) {
+      // Success message (no tunnel)
       message += `\n\n✓ Server is reachable from network`;
       if (result.networkType) {
         message += ` (Network: ${result.networkType})`;
@@ -1866,6 +1890,8 @@ async function stopServer() {
   document.getElementById('serverStatus').textContent = 'Server: Stopped';
   document.getElementById('serverStatus').classList.remove('running');
   document.getElementById('serverUrl').textContent = '';
+  document.getElementById('tunnelUrl').textContent = '';
+  document.getElementById('tunnelUrl').style.display = 'none';
   document.getElementById('connectedClients').textContent = 'Clients: 0';
   document.getElementById('syncOffsetDisplay').textContent = '0 ms';
   document.getElementById('startServer').disabled = false;

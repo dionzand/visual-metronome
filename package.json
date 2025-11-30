@@ -19,6 +19,7 @@
   "dependencies": {
     "express": "^5.1.0",
     "jzz": "^1.9.6",
+    "localtunnel": "^2.0.2",
     "node-osc": "^9.1.7",
     "socket.io": "^4.8.1"
   },
