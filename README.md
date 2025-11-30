@@ -20,12 +20,14 @@ A professional score-based visual metronome application with WebSocket synchroni
 - **Fermata bars** - Hold bars for specific durations (beats or seconds)
 
 ### Advanced Features
+- **Synchronized click track** - Audio metronome clicks on all client devices with per-client delay adjustment
 - **Gradual tempo transitions** - Smooth tempo changes over specified bars
 - **Manual sync control** - Fine-tune timing with millisecond and beat-level adjustments
 - **Loop current bar** - Practice tool to repeat single bar indefinitely
 - **Jump modes** - Direct, next beat, or after bar completion
 - **OSC support** - Send OSC messages to trigger external applications
 - **MIDI clock output** - Sync DAWs and hardware with tempo-accurate MIDI clock
+- **Network detection** - Automatic detection of network issues and firewall problems
 
 ## Screenshots
 
@@ -164,6 +166,25 @@ Each section contains bars with:
 | ← → | Previous/Next Song |
 | ↑ ↓ | Previous/Next Bar |
 | L | Loop Current Bar |
+
+#### Click Track Settings
+Synchronized audio click track that plays on all connected client devices.
+
+- **Enable Click Track** - Turn on/off the click track for all clients
+- **Volume** - Server-side volume control (0-100%)
+
+##### Client-Side Controls
+Each client can individually adjust:
+- **Volume** - Local click volume (does not affect other clients)
+- **Delay** - Fine-tune timing to compensate for network/audio latency (delay-only, positive values)
+  - **+1ms** - Add 1 millisecond of delay
+  - **0ms** - Reset delay to zero
+
+The click track features:
+- **Accent pattern** - First beat and accented beats use a higher-pitched click
+- **Subdivisions** - Supports 8th notes, 16th notes, triplets, quintuplets, and sextuplets
+- **Synchronized playback** - All clients play the same click in perfect sync
+- **Manual delay adjustment** - Each client can delay their click to match slower devices or compensate for audio processing delay
 
 #### Loop Section
 Set start and end bars to loop a specific section of the song.
@@ -359,6 +380,18 @@ To allow other devices on your network to connect:
 2. Ensure the port (default: 3000) is allowed through your firewall
 3. Clients connect to `https://YOUR_IP:PORT` (e.g., `https://192.168.1.100:3000`)
 4. Accept the security certificate warning on first connection (see Client Display section)
+
+### Network Detection & Warnings
+The application automatically detects your network configuration and will warn you about potential connectivity issues:
+
+- **Public Network Client Isolation** - If you're on a public WiFi network (coffee shop, airport, etc.), the app will detect that client isolation may be enabled, which blocks device-to-device communication.
+  - **Solution 1**: Create a WiFi Hotspot from your computer (Settings → Network & Internet → Mobile hotspot)
+  - **Solution 2**: Change network profile to Private (Settings → Network & Internet → Wi-Fi → Network profile)
+  - **Solution 3**: Use a home/office router instead of public WiFi
+
+- **Firewall Warnings** - If the app cannot verify the server is reachable from the network, it will suggest checking Windows Firewall settings or trying alternative ports (3001, 8080, 8000).
+
+- **Port Fallback** - If the selected port is unavailable, the app automatically tries alternative ports and notifies you of the change.
 
 ### Finding Your IP Address
 - **Windows**: Open Command Prompt, type `ipconfig`, look for "IPv4 Address"
