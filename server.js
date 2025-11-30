@@ -420,9 +420,12 @@ class MetronomeServer {
 
     // Create tunnel if requested (bypasses client isolation)
     let tunnelUrl = null;
+    let tunnelPassword = null;
     if (tunnelEnabled) {
       try {
-        tunnelUrl = await this.createTunnel(actualPort);
+        const tunnelResult = await this.createTunnel(actualPort);
+        tunnelUrl = tunnelResult.url;
+        tunnelPassword = tunnelResult.password;
       } catch (err) {
         console.error('Failed to create tunnel:', err.message);
       }
@@ -434,7 +437,8 @@ class MetronomeServer {
       networkType,
       isPublicNetwork,
       likelyClientIsolation,
-      tunnelUrl
+      tunnelUrl,
+      tunnelPassword
     };
   }
 
@@ -511,6 +515,7 @@ class MetronomeServer {
     // Create a public tunnel using localtunnel
     // This bypasses client isolation on public networks
     const localtunnel = require('localtunnel');
+    const https = require('https');
 
     console.log('Creating tunnel to bypass client isolation...');
 
@@ -523,6 +528,10 @@ class MetronomeServer {
       this.tunnelUrl = this.tunnel.url;
       console.log(`Tunnel created: ${this.tunnelUrl}`);
 
+      // Fetch the tunnel password (public IP)
+      const tunnelPassword = await this.getTunnelPassword();
+      console.log(`Tunnel password: ${tunnelPassword}`);
+
       // Handle tunnel close
       this.tunnel.on('close', () => {
         console.log('Tunnel closed');
@@ -534,11 +543,34 @@ class MetronomeServer {
         console.error('Tunnel error:', err.message);
       });
 
-      return this.tunnelUrl;
+      return { url: this.tunnelUrl, password: tunnelPassword };
     } catch (err) {
       console.error('Failed to create tunnel:', err.message);
       throw err;
     }
+  }
+
+  async getTunnelPassword() {
+    // Fetch the tunnel password (public IP) from localtunnel
+    const https = require('https');
+
+    return new Promise((resolve) => {
+      https.get('https://loca.lt/mytunnelpassword', (res) => {
+        let data = '';
+
+        res.on('data', (chunk) => {
+          data += chunk;
+        });
+
+        res.on('end', () => {
+          const password = data.trim();
+          resolve(password || 'Unable to fetch password');
+        });
+      }).on('error', (err) => {
+        console.error('Failed to fetch tunnel password:', err.message);
+        resolve('Unable to fetch password');
+      });
+    });
   }
 
   startHttpRedirect(httpsPort) {

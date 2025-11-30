@@ -1813,12 +1813,20 @@ async function startServer() {
     document.getElementById('serverStatus').classList.add('running');
     document.getElementById('serverUrl').textContent = result.url;
 
-    // Display tunnel URL if available
+    // Display tunnel URL and password if available
     if (result.tunnelUrl) {
       document.getElementById('tunnelUrl').textContent = `Tunnel: ${result.tunnelUrl}`;
       document.getElementById('tunnelUrl').style.display = 'block';
+
+      if (result.tunnelPassword) {
+        document.getElementById('tunnelPassword').textContent = `Password: ${result.tunnelPassword}`;
+        document.getElementById('tunnelPassword').style.display = 'block';
+      } else {
+        document.getElementById('tunnelPassword').style.display = 'none';
+      }
     } else {
       document.getElementById('tunnelUrl').style.display = 'none';
+      document.getElementById('tunnelPassword').style.display = 'none';
     }
 
     document.getElementById('startServer').disabled = true;
@@ -1836,9 +1844,16 @@ async function startServer() {
     // Show tunnel URL if enabled
     if (result.tunnelUrl) {
       message += `\n🌐 PUBLIC TUNNEL URL:\n${result.tunnelUrl}`;
+      if (result.tunnelPassword) {
+        message += `\n\n🔑 TUNNEL PASSWORD (required for first access):\n${result.tunnelPassword}`;
+        message += `\n\n📋 Share with clients:`;
+        message += `\n1. URL: ${result.tunnelUrl}`;
+        message += `\n2. Password: ${result.tunnelPassword}`;
+        message += `\n\nClients will be asked for the password once per device.`;
+      }
       message += `\n\n⚠️ SECURITY WARNING:`;
       message += `\nThis URL is publicly accessible from the internet.`;
-      message += `\nAnyone with this URL can connect to your metronome.`;
+      message += `\nAnyone with the URL and password can connect.`;
       message += `\nThe tunnel will close when you stop the server.`;
       message += `\n\nLocal network URL:\n${result.url}`;
     } else {
@@ -1892,6 +1907,8 @@ async function stopServer() {
   document.getElementById('serverUrl').textContent = '';
   document.getElementById('tunnelUrl').textContent = '';
   document.getElementById('tunnelUrl').style.display = 'none';
+  document.getElementById('tunnelPassword').textContent = '';
+  document.getElementById('tunnelPassword').style.display = 'none';
   document.getElementById('connectedClients').textContent = 'Clients: 0';
   document.getElementById('syncOffsetDisplay').textContent = '0 ms';
   document.getElementById('startServer').disabled = false;

@@ -197,7 +197,7 @@ ipcMain.handle('start-server', async (event, data) => {
   setupServerCallbacks();
 
   const localIP = getLocalIP();
-  const { port: actualPort, reachable, networkType, isPublicNetwork, likelyClientIsolation, tunnelUrl } = startResult;
+  const { port: actualPort, reachable, networkType, isPublicNetwork, likelyClientIsolation, tunnelUrl, tunnelPassword } = startResult;
 
   return {
     success: true,
@@ -208,6 +208,7 @@ ipcMain.handle('start-server', async (event, data) => {
     isPublicNetwork: isPublicNetwork,
     likelyClientIsolation: likelyClientIsolation,
     tunnelUrl: tunnelUrl,
+    tunnelPassword: tunnelPassword,
     portChanged: actualPort !== requestedPort,
     warning: !reachable ? 'Server started but may not be reachable from network. Check firewall settings.' : null
   };
