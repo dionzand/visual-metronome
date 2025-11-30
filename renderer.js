@@ -1776,6 +1776,17 @@ async function importMusicXML() {
 
 // Server control
 async function startServer() {
+  // Show loading indicator
+  document.getElementById('startServer').disabled = true;
+  document.getElementById('serverLoading').style.display = 'block';
+  const tunnelEnabled = document.getElementById('enableTunnel').checked;
+
+  if (tunnelEnabled) {
+    document.getElementById('serverLoadingText').textContent = 'Creating tunnel (this may take a moment)...';
+  } else {
+    document.getElementById('serverLoadingText').textContent = 'Starting server...';
+  }
+
   // Use setlist song if available, otherwise use current score editor
   let scoreData;
   if (setlist.length > 0) {
@@ -1785,6 +1796,9 @@ async function startServer() {
   }
 
   if (!scoreData.sections || scoreData.sections.length === 0 || scoreData.sections.every(s => s.bars.length === 0)) {
+    // Hide loading on error
+    document.getElementById('serverLoading').style.display = 'none';
+    document.getElementById('startServer').disabled = false;
     await showAlert('Please add at least one bar before starting the server');
     return;
   }
@@ -1801,11 +1815,13 @@ async function startServer() {
   midiSettings.enabled = document.getElementById('midiEnabled').checked;
   midiSettings.outputPort = document.getElementById('midiOutput').value;
 
-  // Read port and tunnel settings from UI
+  // Read port from UI
   const port = parseInt(document.getElementById('serverPort').value) || 3000;
-  const tunnelEnabled = document.getElementById('enableTunnel').checked;
 
   const result = await ipcRenderer.invoke('start-server', { scoreData, displaySettings, repeatSong, oscSettings, midiSettings, port, tunnelEnabled });
+
+  // Hide loading indicator
+  document.getElementById('serverLoading').style.display = 'none';
 
   if (result.success) {
     serverRunning = true;
@@ -1895,6 +1911,8 @@ async function startServer() {
 
     await showAlert(message);
   } else {
+    // Re-enable start button on failure
+    document.getElementById('startServer').disabled = false;
     await showAlert(`Failed to start server!\n${result.error}\n\nTry these ports: ${result.suggestedPorts.join(', ')}`);
   }
 }

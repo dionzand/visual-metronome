@@ -98,6 +98,10 @@
           <button id="startServer">Start Server</button>
           <button id="stopServer" disabled>Stop Server</button>
           <div id="serverStatus" class="status">Server: Stopped</div>
+          <div id="serverLoading" class="status" style="display: none; color: #ffcc00;">
+            <span class="loading-spinner">⏳</span>
+            <span id="serverLoadingText">Starting server...</span>
+          </div>
           <div id="connectedClients" class="status">Clients: 0</div>
           <div id="serverUrl" class="url"></div>
           <div id="tunnelUrl" class="url" style="display: none;"></div>
