@@ -51,6 +51,9 @@ A professional score-based visual metronome application with WebSocket synchroni
 ### Client Display
 ![Client Display](screenshots/client_video.gif)
 
+### Conductor View
+![Conductor View](screenshots/conductor.gif)
+
 ## Installation
 
 ### From Releases
