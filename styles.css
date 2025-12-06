@@ -580,6 +580,127 @@ button:disabled {
   gap: 10px;
 }
 
+/* Vamps */
+.vamps-controls {
+  margin-bottom: 15px;
+  display: flex;
+  gap: 10px;
+}
+
+.vamps-container {
+  max-height: 400px;
+  overflow-y: auto;
+  border: 2px solid #333;
+  border-radius: 5px;
+  padding: 10px;
+  background: #0f0f0f;
+}
+
+.vamp-item {
+  background: #2a1f0a;
+  border: 2px solid #ff8c00;
+  border-radius: 8px;
+  padding: 15px;
+  margin-bottom: 15px;
+  position: relative;
+}
+
+.vamp-item:last-child {
+  margin-bottom: 0;
+}
+
+.vamp-header {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr 1fr auto;
+  gap: 15px;
+  align-items: end;
+}
+
+.vamp-field {
+  display: flex;
+  flex-direction: column;
+}
+
+.vamp-field label {
+  font-size: 0.85em;
+  font-weight: 600;
+  color: #ffcc00;
+  margin-bottom: 3px;
+}
+
+.vamp-field input,
+.vamp-field select {
+  padding: 6px 10px;
+  border: 1px solid #ff8c00;
+  border-radius: 4px;
+  font-size: 0.95em;
+  background: #1a1a1a;
+  color: #e0e0e0;
+  pointer-events: auto !important;
+  position: relative;
+  z-index: 100;
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+.vamp-field input:focus,
+.vamp-field select:focus {
+  outline: none;
+  border-color: #ffcc00;
+  box-shadow: 0 0 5px rgba(255, 140, 0, 0.5);
+}
+
+.delete-vamp-btn {
+  padding: 8px 16px;
+  background: #8b0000;
+  color: #fff;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 0.95em;
+  font-weight: 600;
+  transition: background 0.2s;
+}
+
+.delete-vamp-btn:hover {
+  background: #a00000;
+}
+
+.playback-vamps-container {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.playback-vamp-item {
+  background: #2a1f0a;
+  border: 2px solid #ff8c00;
+  border-radius: 8px;
+  padding: 15px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-align: center;
+}
+
+.playback-vamp-item:hover {
+  background: #3a2f1a;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(255, 140, 0, 0.5);
+}
+
+.playback-vamp-name {
+  font-size: 16px;
+  font-weight: 700;
+  color: #ffcc00;
+  margin-bottom: 8px;
+}
+
+.playback-vamp-details {
+  font-size: 13px;
+  color: #ccc;
+}
+
 .setlist-container {
   max-height: 200px;
   overflow-y: auto;

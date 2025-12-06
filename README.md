@@ -20,6 +20,8 @@ A professional score-based visual metronome application with WebSocket synchroni
 - **Fermata bars** - Hold bars for specific durations (beats or seconds)
 
 ### Advanced Features
+- **Conductor view** - Dedicated password-protected control interface for live performance
+- **Vamps with safety bars** - Define repeating sections with conductor-triggered exits
 - **Synchronized click track** - Audio metronome clicks on all client devices with per-client delay adjustment
 - **Gradual tempo transitions** - Smooth tempo changes over specified bars
 - **Manual sync control** - Fine-tune timing with millisecond and beat-level adjustments
@@ -28,6 +30,7 @@ A professional score-based visual metronome application with WebSocket synchroni
 - **OSC support** - Send OSC messages to trigger external applications
 - **MIDI clock output** - Sync DAWs and hardware with tempo-accurate MIDI clock
 - **Network detection** - Automatic detection of network issues and firewall problems
+- **Comprehensive tooltips** - Helpful guidance on every control element throughout the GUI
 
 ## Screenshots
 
@@ -117,6 +120,20 @@ Each section contains bars with:
 - **Add Bar** - Add a bar to a section
 - **Delete buttons (✕)** - Remove individual bars or sections
 
+#### Vamps
+Define predefined vamps (repeating sections) that can be quickly activated during live performance.
+
+- **Vamp Name** - Descriptive label (e.g., "Solo Section", "Outro Vamp")
+- **Start Bar** - First bar of the vamp loop
+- **End Bar** - Last bar of the vamp loop
+- **Safety Bars** - Number of extra times to play the end bar after conductor signals exit
+
+Vamps appear in:
+- Playback Control tab for quick activation
+- Conductor view for live control
+
+When a vamp is active, playback loops between start and end bars. The conductor can add safety bars by clicking "Add Safety Bar" to signal musicians that the vamp is ending soon.
+
 ---
 
 ### Tab 2: Setlist Manager
@@ -139,6 +156,7 @@ Each section contains bars with:
 
 #### Server Control
 - **Port** - Configure the HTTPS server port (default: 3000, range: 1024-65535)
+- **Conductor Password** - Set a 4-digit password to protect the conductor view (default: 1234)
 - **Start Server** - Start the secure WebSocket server (HTTPS/WSS)
 - **Stop Server** - Stop the server
 - **Server URL** - Display the HTTPS URL for clients to connect (e.g., `https://192.168.1.100:3000`)
@@ -188,6 +206,14 @@ The click track features:
 
 #### Loop Section
 Set start and end bars to loop a specific section of the song.
+
+#### Vamps
+Quick access to predefined vamps from the current score. Click any vamp to activate it immediately.
+
+- Displays all vamps defined in the Score Editor
+- Shows start/end bars and safety bar count
+- Click to enable the vamp during playback
+- Use "Add Safety Bar" in conductor view to signal vamp exit
 
 #### Navigation
 Jump to a specific bar number with three modes:
@@ -293,6 +319,47 @@ This is normal and safe for local network use. The certificate ensures reliable 
 - **Accented beats** - Brighter light and stronger background flash
 - **Subdivisions** - Smaller, dimmer light pulses between main beats
 - **Fermata** - Large fermata symbol (𝄐) replaces beat lights during hold
+
+---
+
+## Conductor View
+
+The conductor view provides a dedicated control interface for live performance, accessible at `https://[server-ip]:[port]/conductor-login`.
+
+### Authentication
+- Protected by a 4-digit password configured in Server Control
+- Password required on first access
+- Session persists for 30 minutes
+- Sessions cleared when server restarts
+
+### Features
+
+#### Playback Controls
+- **Play/Pause/Stop** - Control playback
+- **Bar Display** - Large current bar number
+- **Beat Lights** - Visual beat indicators matching client displays
+- **Section & Song Info** - Current section and song name
+
+#### Song Navigation
+- **Song Selector** - Jump to any song in the setlist
+- **Previous/Next Song** - Navigate through setlist
+- **Bar Navigation** - Jump to specific bar numbers
+
+#### Tempo Control
+- **+5 / -5 BPM** - Adjust tempo in real-time
+- **Reset Tempo** - Return to original tempo
+- **Current Tempo Display** - Shows active tempo with transition indicator
+
+#### Vamp Control
+- **Predefined Vamps** - Quick access to all defined vamps
+- **Enable Vamp** - Activate a vamp loop
+- **Add Safety Bar** - Signal musicians that vamp is ending
+- **Disable Vamp** - Exit vamp immediately
+- **Safety Bar Counter** - Shows remaining safety bars
+
+### Access URLs
+- **Musician View:** `https://[server-ip]:[port]` (no password)
+- **Conductor View:** `https://[server-ip]:[port]/conductor-login` (password required)
 
 ---
 

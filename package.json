@@ -1,6 +1,6 @@
 {
   "name": "metronome",
-  "version": "2.1.0",
+  "version": "2.2.0",
   "description": "Professional score-based visual metronome with advanced musical notation support",
   "main": "main.js",
   "scripts": {

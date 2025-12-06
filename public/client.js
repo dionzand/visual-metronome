@@ -402,6 +402,11 @@ socket.on('playback-stopped', () => {
 socket.on('state-update', (state) => {
   if (!state.isPlaying) return;
 
+  // Hide waiting message when playback is active (for clients connecting mid-song)
+  if (waitingMessageEl.style.display !== 'none') {
+    waitingMessageEl.style.display = 'none';
+  }
+
   // Handle click track
   clickTrack.onBeat(state);
 
@@ -500,6 +505,14 @@ socket.on('state-update', (state) => {
     const isAccented = state.accentPattern && state.accentPattern.includes(state.beat);
     const subdivisionIndex = state.currentSubdivision || 0;
     updateMetronomeLights(state.beat, subdivisionIndex, isAccented);
+  }
+});
+
+// Vamp warning handler
+socket.on('vamp-state-update', (vampState) => {
+  const vampWarningEl = document.getElementById('vampWarning');
+  if (vampWarningEl) {
+    vampWarningEl.style.display = vampState.enabled ? 'block' : 'none';
   }
 });
 

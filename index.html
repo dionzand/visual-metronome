@@ -12,66 +12,75 @@
 
     <!-- Tab Navigation -->
     <div class="tab-navigation">
-      <button class="tab-button active" data-tab="score-editor">Score Editor</button>
-      <button class="tab-button" data-tab="setlist-manager">Setlist Manager</button>
-      <button class="tab-button" data-tab="playback-control">Playback Control</button>
+      <button class="tab-button active" data-tab="score-editor" title="Create and edit musical scores with sections, vamps, and settings">Score Editor</button>
+      <button class="tab-button" data-tab="setlist-manager" title="Build and manage your performance setlist">Setlist Manager</button>
+      <button class="tab-button" data-tab="playback-control" title="Control playback, server settings, and live performance features">Playback Control</button>
     </div>
 
     <!-- SCORE EDITOR TAB -->
     <div class="tab-content active" id="score-editor">
       <div class="section">
-        <h2>Save/Load Score</h2>
+        <h2 title="Save, load, or create new musical scores">Save/Load Score</h2>
         <div class="file-controls">
-          <button id="saveScore">Save Score to File</button>
-          <button id="loadScore">Load Score from File</button>
-          <button id="importMusicXML">Import MusicXML</button>
-          <button id="newScore">New Score</button>
+          <button id="saveScore" title="Save the current score to a JSON file">Save Score to File</button>
+          <button id="loadScore" title="Load a previously saved score from a JSON file">Load Score from File</button>
+          <button id="importMusicXML" title="Import a MusicXML file and convert it to a score">Import MusicXML</button>
+          <button id="newScore" title="Create a new blank score (unsaved changes will be lost)">New Score</button>
         </div>
       </div>
 
       <div class="section">
-        <h2>Score Name</h2>
-        <input type="text" id="scoreName" class="score-name-input" placeholder="Enter score name..." value="Untitled Score">
+        <h2 title="The name of your musical score">Score Name</h2>
+        <input type="text" id="scoreName" class="score-name-input" placeholder="Enter score name..." value="Untitled Score" title="Enter a descriptive name for this score">
       </div>
 
       <div class="section">
-        <h2>Playback Settings</h2>
+        <h2 title="Configure playback behavior settings">Playback Settings</h2>
         <div class="settings-grid">
           <div class="setting">
-            <label for="countoff">Countoff (bars):</label>
-            <input type="number" id="countoff" value="1" min="0" max="4">
+            <label for="countoff" title="Number of bars to count before starting playback">Countoff (bars):</label>
+            <input type="number" id="countoff" value="1" min="0" max="4" title="Set how many bars of count-in before the score starts (0-4)">
           </div>
         </div>
       </div>
 
       <div class="section">
-        <h2>Sections</h2>
+        <h2 title="Define the sections of your score with different tempos, time signatures, and bars">Sections</h2>
         <div class="sections-controls">
-          <button id="addSection">Add Section</button>
+          <button id="addSection" title="Add a new section to your score">Add Section</button>
         </div>
         <div id="sectionsContainer" class="sections-container"></div>
+      </div>
+
+      <div class="section">
+        <h2 title="Define repeating sections (vamps) for live performance">Vamps</h2>
+        <p class="info-text">Define predefined vamps that will appear in the conductor view.</p>
+        <div class="vamps-controls">
+          <button id="addVamp" title="Add a new vamp definition">Add Vamp</button>
+        </div>
+        <div id="vampsContainer" class="vamps-container"></div>
       </div>
     </div>
 
     <!-- SETLIST MANAGER TAB -->
     <div class="tab-content" id="setlist-manager">
       <div class="section">
-        <h2>Add to Setlist</h2>
+        <h2 title="Add scores to your performance setlist">Add to Setlist</h2>
         <p class="info-text">Add the current score to your setlist or load scores from files.</p>
         <div class="setlist-add-controls">
-          <button id="addCurrentToSetlist">Add Current Score to Setlist</button>
-          <button id="loadScoreToSetlist">Load Score File to Setlist</button>
+          <button id="addCurrentToSetlist" title="Add the currently open score to the setlist">Add Current Score to Setlist</button>
+          <button id="loadScoreToSetlist" title="Load a score from a file and add it to the setlist">Load Score File to Setlist</button>
         </div>
       </div>
 
       <div class="section">
-        <h2>Setlist</h2>
+        <h2 title="Manage your performance setlist order and save/load setlists">Setlist</h2>
         <div class="setlist-controls">
-          <button id="saveSetlist">Save Setlist</button>
-          <button id="loadSetlist">Load Setlist</button>
-          <button id="clearSetlist">Clear Setlist</button>
-          <button id="moveUp" disabled>Move Up</button>
-          <button id="moveDown" disabled>Move Down</button>
+          <button id="saveSetlist" title="Save the current setlist to a file">Save Setlist</button>
+          <button id="loadSetlist" title="Load a previously saved setlist from a file">Load Setlist</button>
+          <button id="clearSetlist" title="Remove all scores from the setlist">Clear Setlist</button>
+          <button id="moveUp" disabled title="Move selected score up in the setlist">Move Up</button>
+          <button id="moveDown" disabled title="Move selected score down in the setlist">Move Down</button>
         </div>
         <div id="setlistContainer" class="setlist-container"></div>
       </div>
@@ -80,14 +89,18 @@
     <!-- PLAYBACK CONTROL TAB -->
     <div class="tab-content" id="playback-control">
       <div class="section">
-        <h2>Server Control</h2>
+        <h2 title="Start or stop the metronome server to connect musician clients">Server Control</h2>
         <div class="server-controls">
           <div class="control-group">
-            <label for="serverPort">Port:</label>
-            <input type="number" id="serverPort" value="3000" min="1024" max="65535" style="width: 100px;">
+            <label for="serverPort" title="Network port for the server">Port:</label>
+            <input type="number" id="serverPort" value="3000" min="1024" max="65535" style="width: 100px;" title="Server port number (1024-65535, default: 3000)">
           </div>
-          <button id="startServer">Start Server</button>
-          <button id="stopServer" disabled>Stop Server</button>
+          <div class="control-group">
+            <label for="conductorPassword" title="4-digit password to access conductor view">Conductor Password:</label>
+            <input type="text" id="conductorPassword" value="1234" maxlength="4" pattern="[0-9]{4}" style="width: 80px;" title="Enter a 4-digit password for conductor view access">
+          </div>
+          <button id="startServer" title="Start the metronome server">Start Server</button>
+          <button id="stopServer" disabled title="Stop the metronome server">Stop Server</button>
           <div id="serverStatus" class="status">Server: Stopped</div>
           <div id="serverLoading" class="status" style="display: none; color: #ffcc00;">
             <span class="loading-spinner">⏳</span>
@@ -99,27 +112,27 @@
       </div>
 
       <div class="section">
-        <h2>Song Selection</h2>
+        <h2 title="Select which song to play from your setlist">Song Selection</h2>
         <div class="song-selection">
-          <label for="currentSongSelect">Current Song:</label>
-          <select id="currentSongSelect" disabled>
+          <label for="currentSongSelect" title="Choose a song from the setlist">Current Song:</label>
+          <select id="currentSongSelect" disabled title="Select a song to play">
             <option value="">No songs in setlist</option>
           </select>
           <div class="song-nav-buttons">
-            <button id="prevSong" disabled>← Previous</button>
-            <button id="nextSong" disabled>Next →</button>
+            <button id="prevSong" disabled title="Go to previous song">← Previous</button>
+            <button id="nextSong" disabled title="Go to next song">Next →</button>
           </div>
-          <label class="checkbox-label">
+          <label class="checkbox-label" title="Automatically move to next song when current song finishes">
             <input type="checkbox" id="autoAdvance">
             Auto-advance to next song
           </label>
           <div class="auto-advance-settings" id="autoAdvanceSettings" style="display: none;">
             <div class="setting">
-              <label for="pauseBetweenSongs">Pause between songs (seconds):</label>
-              <input type="number" id="pauseBetweenSongs" value="3" min="0" max="30" step="1">
+              <label for="pauseBetweenSongs" title="Delay before starting the next song">Pause between songs (seconds):</label>
+              <input type="number" id="pauseBetweenSongs" value="3" min="0" max="30" step="1" title="Number of seconds to wait between songs (0-30)">
             </div>
           </div>
-          <label class="checkbox-label">
+          <label class="checkbox-label" title="Repeat the current song continuously">
             <input type="checkbox" id="repeatSong">
             Repeat song (loop)
           </label>
@@ -127,18 +140,18 @@
       </div>
 
       <div class="section">
-        <h2>Playback Control</h2>
+        <h2 title="Control playback and adjust tempo">Playback Control</h2>
         <div class="tempo-percentage-control">
-          <label for="tempoPercentage">Tempo:</label>
-          <input type="range" id="tempoPercentage" min="25" max="150" value="100" step="5">
+          <label for="tempoPercentage" title="Adjust playback tempo as a percentage of the original">Tempo:</label>
+          <input type="range" id="tempoPercentage" min="25" max="150" value="100" step="5" title="Adjust tempo from 25% to 150% of original">
           <span id="tempoPercentageDisplay">100%</span>
-          <button id="resetTempoPercentage">Reset</button>
+          <button id="resetTempoPercentage" title="Reset tempo to 100%">Reset</button>
         </div>
         <div class="playback-controls" style="margin-top: 20px;">
-          <button id="play" disabled>Play</button>
-          <button id="pause" disabled>Pause</button>
-          <button id="stop" disabled>Stop</button>
-          <button id="loopCurrentBar" disabled style="background: #6c757d; color: white;">Loop Current Bar</button>
+          <button id="play" disabled title="Start playback">Play</button>
+          <button id="pause" disabled title="Pause playback">Pause</button>
+          <button id="stop" disabled title="Stop playback and return to beginning">Stop</button>
+          <button id="loopCurrentBar" disabled style="background: #6c757d; color: white;" title="Continuously loop the current bar">Loop Current Bar</button>
         </div>
         <div class="keyboard-shortcuts-hint">
           Shortcuts: Space (Play/Pause) | S (Stop) | ← → (Prev/Next Song) | ↑ ↓ (Prev/Next Bar) | L (Loop Current Bar)
@@ -146,167 +159,175 @@
       </div>
 
       <div class="section">
-        <h2>Click Track Settings</h2>
+        <h2 title="Audio metronome click synchronized across all connected clients">Click Track Settings</h2>
         <p class="info-text">Audio click track synchronized across all client devices.</p>
         <div class="click-settings-grid">
           <div class="setting">
-            <label for="clickEnabled">
+            <label for="clickEnabled" title="Turn on/off audio click for all clients">
               <input type="checkbox" id="clickEnabled">
               Enable Click Track
             </label>
           </div>
           <div class="setting">
-            <label for="clickVolume">Volume:</label>
-            <input type="range" id="clickVolume" min="0" max="100" value="75">
+            <label for="clickVolume" title="Adjust click track volume for all clients">Volume:</label>
+            <input type="range" id="clickVolume" min="0" max="100" value="75" title="Click track volume (0-100%)">
             <span id="clickVolumeValue">75%</span>
           </div>
         </div>
       </div>
 
       <div class="section">
-        <h2>Loop Section</h2>
+        <h2 title="Repeat a specific range of bars continuously">Loop Section</h2>
         <div class="loop-controls-grid">
           <div class="setting">
-            <label for="loopStart">Start Bar:</label>
-            <input type="number" id="loopStart" placeholder="Start bar" min="1">
+            <label for="loopStart" title="First bar of the loop">Start Bar:</label>
+            <input type="number" id="loopStart" placeholder="Start bar" min="1" title="Bar number where loop begins">
           </div>
           <div class="setting">
-            <label for="loopEnd">End Bar:</label>
-            <input type="number" id="loopEnd" placeholder="End bar" min="1">
+            <label for="loopEnd" title="Last bar of the loop">End Bar:</label>
+            <input type="number" id="loopEnd" placeholder="End bar" min="1" title="Bar number where loop ends">
           </div>
           <div class="loop-buttons">
-            <button id="enableLoop">Enable Loop</button>
-            <button id="disableLoop">Disable Loop</button>
+            <button id="enableLoop" title="Activate the loop">Enable Loop</button>
+            <button id="disableLoop" title="Deactivate the loop">Disable Loop</button>
           </div>
         </div>
       </div>
 
       <div class="section">
-        <h2>Navigation</h2>
+        <h2 title="Quick access to predefined vamps from the current score">Vamps</h2>
+        <p class="info-text">Quick access to predefined vamps from the current score.</p>
+        <div id="playbackVampsContainer" class="playback-vamps-container">
+          <div style="color: #999; text-align: center; padding: 20px;">No vamps defined in current score</div>
+        </div>
+      </div>
+
+      <div class="section">
+        <h2 title="Jump to specific bars during playback">Navigation</h2>
         <div class="jump-controls">
-          <label for="jumpToBar">Jump to Bar:</label>
-          <input type="number" id="jumpToBar" placeholder="Bar #" min="1">
+          <label for="jumpToBar" title="Enter the bar number to jump to">Jump to Bar:</label>
+          <input type="number" id="jumpToBar" placeholder="Bar #" min="1" title="Enter bar number">
         </div>
         <div class="jump-mode-controls">
-          <label class="jump-mode-label">
+          <label class="jump-mode-label" title="Jump immediately without waiting">
             <input type="radio" name="jumpMode" value="direct" checked>
             Jump directly (immediate)
           </label>
-          <label class="jump-mode-label">
+          <label class="jump-mode-label" title="Wait until next beat, then jump">
             <input type="radio" name="jumpMode" value="nextBeat">
             Jump at next beat
           </label>
-          <label class="jump-mode-label">
+          <label class="jump-mode-label" title="Wait until current bar finishes, then jump">
             <input type="radio" name="jumpMode" value="afterBar">
             Jump after this bar
           </label>
         </div>
-        <button id="jumpBtn">Jump</button>
+        <button id="jumpBtn" title="Execute the jump to the specified bar">Jump</button>
       </div>
 
       <div class="section">
-        <h2>Manual Sync</h2>
+        <h2 title="Fine-tune playback timing to synchronize with external audio sources">Manual Sync</h2>
         <p class="info-text">Fine-tune playback timing to sync with external audio.</p>
         <div class="sync-offset-display">
-          <label>Current Offset:</label>
+          <label title="Current timing offset in milliseconds">Current Offset:</label>
           <span id="syncOffsetDisplay">0 ms</span>
         </div>
         <div class="sync-controls-grid">
           <div class="sync-control-group">
-            <label>Fine Adjustment (milliseconds):</label>
+            <label title="Adjust timing by small increments in milliseconds">Fine Adjustment (milliseconds):</label>
             <div class="sync-buttons">
-              <button id="syncMinus50">-50ms</button>
-              <button id="syncMinus10">-10ms</button>
-              <button id="syncPlus10">+10ms</button>
-              <button id="syncPlus50">+50ms</button>
+              <button id="syncMinus50" title="Shift timing 50ms earlier">-50ms</button>
+              <button id="syncMinus10" title="Shift timing 10ms earlier">-10ms</button>
+              <button id="syncPlus10" title="Shift timing 10ms later">+10ms</button>
+              <button id="syncPlus50" title="Shift timing 50ms later">+50ms</button>
             </div>
           </div>
           <div class="sync-control-group">
-            <label>Beat Adjustment:</label>
+            <label title="Adjust timing by full beat increments">Beat Adjustment:</label>
             <div class="sync-buttons">
-              <button id="syncMinusBeat">← Beat Back</button>
-              <button id="syncPlusBeat">Beat Forward →</button>
+              <button id="syncMinusBeat" title="Shift timing one beat earlier">← Beat Back</button>
+              <button id="syncPlusBeat" title="Shift timing one beat later">Beat Forward →</button>
             </div>
           </div>
         </div>
-        <button id="syncReset" style="margin-top: 10px;">Reset Offset</button>
+        <button id="syncReset" style="margin-top: 10px;" title="Reset timing offset to zero">Reset Offset</button>
       </div>
 
       <div class="section">
-        <h2>Client Display Settings</h2>
+        <h2 title="Customize colors and appearance for all musician client displays">Client Display Settings</h2>
         <div class="display-settings-grid">
           <div class="setting">
-            <label for="lightColor">Light Color:</label>
-            <input type="color" id="lightColor" value="#ffffff">
+            <label for="lightColor" title="Color of the beat indicator lights">Light Color:</label>
+            <input type="color" id="lightColor" value="#ffffff" title="Choose light color for beat indicators">
           </div>
           <div class="setting">
-            <label for="progressBarColor">Progress Bar Color:</label>
-            <input type="color" id="progressBarColor" value="#ffffff">
+            <label for="progressBarColor" title="Color of the bar progress indicator">Progress Bar Color:</label>
+            <input type="color" id="progressBarColor" value="#ffffff" title="Choose progress bar color">
           </div>
           <div class="setting">
-            <label for="progressBarWidth">Progress Bar Width:</label>
-            <input type="range" id="progressBarWidth" min="2" max="20" value="4">
+            <label for="progressBarWidth" title="Thickness of the progress bar">Progress Bar Width:</label>
+            <input type="range" id="progressBarWidth" min="2" max="20" value="4" title="Adjust progress bar thickness (2-20px)">
             <span id="progressBarWidthDisplay">4px</span>
           </div>
           <div class="setting">
-            <label for="backgroundColor">Background Color:</label>
-            <input type="color" id="backgroundColor" value="#000000">
+            <label for="backgroundColor" title="Main background color for client displays">Background Color:</label>
+            <input type="color" id="backgroundColor" value="#000000" title="Choose background color">
           </div>
           <div class="setting">
-            <label for="backgroundFlashColor">Background Flash Color:</label>
-            <input type="color" id="backgroundFlashColor" value="#808080">
+            <label for="backgroundFlashColor" title="Color that flashes on each beat">Background Flash Color:</label>
+            <input type="color" id="backgroundFlashColor" value="#808080" title="Choose beat flash color">
           </div>
           <div class="setting">
-            <label for="textColor">Text Color:</label>
-            <input type="color" id="textColor" value="#ffffff">
+            <label for="textColor" title="Color of text information on client displays">Text Color:</label>
+            <input type="color" id="textColor" value="#ffffff" title="Choose text color">
           </div>
           <div class="setting">
-            <label for="chordColor">Chord Color:</label>
-            <input type="color" id="chordColor" value="#ffcc00">
+            <label for="chordColor" title="Color of chord symbols displayed to musicians">Chord Color:</label>
+            <input type="color" id="chordColor" value="#ffcc00" title="Choose chord color">
           </div>
         </div>
-        <button id="applyDisplaySettings" style="margin-top: 15px;">Apply Settings</button>
-        <button id="resetDisplaySettings" style="margin-top: 15px;">Reset to Defaults</button>
+        <button id="applyDisplaySettings" style="margin-top: 15px;" title="Send these display settings to all connected clients">Apply Settings</button>
+        <button id="resetDisplaySettings" style="margin-top: 15px;" title="Reset all display settings to default values">Reset to Defaults</button>
       </div>
 
       <div class="section">
-        <h2>OSC Settings</h2>
+        <h2 title="Configure OSC (Open Sound Control) messages to trigger external applications">OSC Settings</h2>
         <p class="info-text">Send OSC messages to external applications when reaching specific bars (e.g., trigger backing tracks).</p>
         <div class="osc-settings-grid">
           <div class="setting">
-            <label for="oscEnabled">
+            <label for="oscEnabled" title="Turn on/off OSC message sending">
               <input type="checkbox" id="oscEnabled">
               Enable OSC
             </label>
           </div>
           <div class="setting">
-            <label for="oscHost">Target IP:</label>
-            <input type="text" id="oscHost" value="127.0.0.1" placeholder="127.0.0.1">
+            <label for="oscHost" title="IP address of the OSC receiver">Target IP:</label>
+            <input type="text" id="oscHost" value="127.0.0.1" placeholder="127.0.0.1" title="Enter target IP address (default: 127.0.0.1 for local machine)">
           </div>
           <div class="setting">
-            <label for="oscPort">Target Port:</label>
-            <input type="number" id="oscPort" value="8000" min="1" max="65535">
+            <label for="oscPort" title="Port number of the OSC receiver">Target Port:</label>
+            <input type="number" id="oscPort" value="8000" min="1" max="65535" title="Enter target port number (1-65535, default: 8000)">
           </div>
         </div>
-        <button id="testOsc" style="margin-top: 15px;">Test OSC Connection</button>
+        <button id="testOsc" style="margin-top: 15px;" title="Send a test OSC message to verify connection">Test OSC Connection</button>
       </div>
 
       <div class="section">
-        <h2>MIDI Clock Output</h2>
+        <h2 title="Send MIDI clock signals to synchronize with DAWs and hardware">MIDI Clock Output</h2>
         <p class="info-text">Send MIDI clock to sync with DAWs and hardware devices.</p>
         <div class="midi-settings-grid">
           <div class="setting">
-            <label for="midiEnabled">
+            <label for="midiEnabled" title="Turn on/off MIDI clock output">
               <input type="checkbox" id="midiEnabled">
               Enable MIDI Clock
             </label>
           </div>
           <div class="setting">
-            <label for="midiOutput">MIDI Output:</label>
-            <select id="midiOutput">
+            <label for="midiOutput" title="Select which MIDI device to send clock signals to">MIDI Output:</label>
+            <select id="midiOutput" title="Choose a MIDI output device from available ports">
               <option value="">Select MIDI output...</option>
             </select>
-            <button id="refreshMidiPorts" style="margin-left: 5px;">↻</button>
+            <button id="refreshMidiPorts" style="margin-left: 5px;" title="Refresh the list of available MIDI ports">↻</button>
           </div>
         </div>
       </div>

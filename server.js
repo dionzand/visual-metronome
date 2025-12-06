@@ -8,7 +8,7 @@ const osc = require('node-osc');
 const JZZ = require('jzz');
 
 class MetronomeServer {
-  constructor(scoreData, displaySettings = null, repeatSong = false, oscSettings = null, midiSettings = null) {
+  constructor(scoreData, displaySettings = null, repeatSong = false, oscSettings = null, midiSettings = null, conductorPassword = '1234') {
     this.scoreData = scoreData;
     this.repeatSong = repeatSong;
     this.oscSettings = oscSettings || { enabled: false, host: '127.0.0.1', port: 8000 };
@@ -23,6 +23,10 @@ class MetronomeServer {
 
     // Click track settings
     this.clickSettings = { enabled: false, volume: 75 };
+
+    // Conductor password
+    this.conductorPassword = conductorPassword || '1234';
+    this.authenticatedSessions = new Set();
 
     if (this.oscSettings.enabled) {
       this.setupOscClient();
@@ -93,12 +97,25 @@ class MetronomeServer {
     this.loopCurrentBarEnabled = false;
     this.loopCurrentBarNumber = null;
 
+    // Vamp state
+    this.vampState = {
+      enabled: false,
+      startBar: null,
+      endBar: null,
+      safetyBarsRemaining: 0,
+      predefinedVampName: null
+    };
+
+    // Conductor tempo override
+    this.conductorTempoOverride = null;
+
     // Build flat bar structure for easier navigation
     this.buildBarStructure();
 
     // Callbacks
     this.onClientCountChange = null;
     this.onSongEnd = null;
+    this.onNextSongRequested = null;
 
     // HTTP redirect server (will be created on start)
     this.httpRedirectServer = null;
@@ -197,11 +214,69 @@ class MetronomeServer {
       next();
     });
 
+    // Parse JSON bodies
+    this.app.use(express.json());
+
+    // Simple cookie parser (no external dependency needed)
+    this.app.use((req, res, next) => {
+      req.cookies = {};
+      const cookieHeader = req.headers.cookie;
+      if (cookieHeader) {
+        cookieHeader.split(';').forEach(cookie => {
+          const parts = cookie.split('=');
+          req.cookies[parts[0].trim()] = parts[1] ? parts[1].trim() : '';
+        });
+      }
+      next();
+    });
+
     this.app.use(express.static(path.join(__dirname, 'public')));
 
     this.app.get('/', (req, res) => {
       res.sendFile(path.join(__dirname, 'public', 'client.html'));
     });
+
+    // Conductor login page
+    this.app.get('/conductor-login', (req, res) => {
+      res.sendFile(path.join(__dirname, 'public', 'conductor-auth.html'));
+    });
+
+    // Conductor authentication endpoint
+    this.app.post('/conductor-auth', (req, res) => {
+      const { password } = req.body;
+
+      if (password === this.conductorPassword) {
+        // Generate a simple session token
+        const sessionToken = this.generateSessionToken();
+        this.authenticatedSessions.add(sessionToken);
+
+        // Set cookie (30 minute expiration)
+        const expiryDate = new Date(Date.now() + 30 * 60 * 1000);
+        res.setHeader('Set-Cookie', `conductor_session=${sessionToken}; Path=/; HttpOnly; Expires=${expiryDate.toUTCString()}`);
+
+        res.json({ success: true });
+      } else {
+        res.json({ success: false, error: 'Invalid password' });
+      }
+    });
+
+    // Protected conductor route
+    this.app.get('/conductor', (req, res) => {
+      const sessionToken = req.cookies.conductor_session;
+
+      // Check if session is authenticated
+      if (sessionToken && this.authenticatedSessions.has(sessionToken)) {
+        res.sendFile(path.join(__dirname, 'public', 'conductor.html'));
+      } else {
+        // Redirect to login page
+        res.redirect('/conductor-login');
+      }
+    });
+  }
+
+  generateSessionToken() {
+    // Generate a random session token
+    return Math.random().toString(36).substring(2) + Date.now().toString(36);
   }
 
   setupSocketHandlers() {
@@ -223,6 +298,67 @@ class MetronomeServer {
       if (this.isPlaying) {
         socket.emit('state-update', this.getCurrentState());
       }
+
+      // Send vamp and tempo override state
+      socket.emit('vamp-state-update', this.vampState);
+      socket.emit('tempo-override-update', { tempo: this.conductorTempoOverride });
+
+      // Conductor control events
+      socket.on('conductor-play', () => this.play());
+      socket.on('conductor-pause', () => this.pause());
+      socket.on('conductor-stop', () => this.stopPlayback());
+
+      socket.on('conductor-seek', (barNumber) => {
+        this.seekToBar(barNumber, 'direct');
+      });
+
+      socket.on('conductor-tempo-adjust', (delta) => {
+        const currentTempo = this.getCurrentTempo();
+        this.conductorTempoOverride = Math.max(20, Math.min(300, currentTempo + delta));
+        this.io.emit('tempo-override-update', { tempo: this.conductorTempoOverride });
+      });
+
+      socket.on('conductor-tempo-reset', () => {
+        this.conductorTempoOverride = null;
+        this.io.emit('tempo-override-update', { tempo: null });
+      });
+
+      socket.on('conductor-vamp-enable', (vampData) => {
+        this.vampState = {
+          enabled: true,
+          startBar: vampData.startBar,
+          endBar: vampData.endBar,
+          safetyBarsRemaining: vampData.safetyBars || 0,
+          predefinedVampName: vampData.name || null
+        };
+        this.io.emit('vamp-state-update', this.vampState);
+      });
+
+      socket.on('conductor-vamp-disable', () => {
+        this.vampState.enabled = false;
+        this.io.emit('vamp-state-update', this.vampState);
+      });
+
+      socket.on('conductor-safety-bar-trigger', () => {
+        if (this.vampState.enabled) {
+          this.vampState.safetyBarsRemaining++;
+          this.io.emit('vamp-state-update', this.vampState);
+        }
+      });
+
+      socket.on('conductor-next-song', () => {
+        // Signal to Electron main process via callback
+        if (this.onNextSongRequested) {
+          this.onNextSongRequested();
+        }
+      });
+
+      socket.on('conductor-go-to-song', (songIndex) => {
+        // Signal to Electron main process via callback
+        if (this.onGoToSongRequested) {
+          this.onGoToSongRequested(songIndex);
+        }
+      });
 
       socket.on('disconnect', () => {
         console.log('Client disconnected:', socket.id);
@@ -542,6 +678,8 @@ class MetronomeServer {
       this.midiOutput.close();
       this.midiOutput = null;
     }
+    // Clear authenticated sessions
+    this.authenticatedSessions.clear();
     if (this.httpRedirectServer) {
       this.httpRedirectServer.close();
       console.log('HTTP redirect server stopped');
@@ -586,6 +724,11 @@ class MetronomeServer {
   }
 
   getCurrentTempo() {
+    // Conductor override takes priority
+    if (this.conductorTempoOverride !== null) {
+      return this.conductorTempoOverride;
+    }
+
     if (this.inCountoff) {
       return this.scoreData.sections[0]?.tempo || 120;
     }
@@ -681,6 +824,18 @@ class MetronomeServer {
     this.currentPassNumber = 1;
     this.hasJumpedViaDSorDC = false; // Reset D.S./D.C. navigation
     this.shouldWatchForToCodaOrFine = false;
+
+    // Disable vamp on stop
+    if (this.vampState.enabled) {
+      this.vampState.enabled = false;
+      this.io.emit('vamp-state-update', this.vampState);
+    }
+
+    // Reset tempo override on stop
+    if (this.conductorTempoOverride !== null) {
+      this.conductorTempoOverride = null;
+      this.io.emit('tempo-override-update', { tempo: null });
+    }
 
     if (this.updateInterval) {
       clearInterval(this.updateInterval);
@@ -982,6 +1137,25 @@ class MetronomeServer {
     if (this.loopCurrentBarEnabled && this.loopCurrentBarNumber && !this.inCountoff) {
       this.executeJump(this.loopCurrentBarNumber);
       return;
+    }
+
+    // Check for vamp (priority 2)
+    if (this.vampState.enabled && !this.inCountoff) {
+      const currentBar = this.getAbsoluteBarNumber();
+
+      if (currentBar >= this.vampState.endBar) {
+        // At end of vamp
+        if (this.vampState.safetyBarsRemaining > 0) {
+          // Play one more bar (safety bar), decrement count
+          this.vampState.safetyBarsRemaining--;
+          this.io.emit('vamp-state-update', this.vampState);
+          // Continue to next bar normally (safety bar)
+        } else {
+          // Loop back to vamp start
+          this.executeJump(this.vampState.startBar);
+          return;
+        }
+      }
     }
 
     // Check for pending jump after bar

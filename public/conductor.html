@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Conductor View - Visual Metronome</title>
+  <link rel="stylesheet" href="conductor.css">
+</head>
+<body>
+  <!-- Header Bar -->
+  <div class="header-bar">
+    <div class="status-section">
+      <span class="status-indicator" id="statusIndicator">●</span>
+      <span id="statusText">Disconnected</span>
+    </div>
+    <div class="song-info">
+      <span>Song: <strong id="songName">--</strong></span>
+    </div>
+  </div>
+
+  <!-- Main Container -->
+  <div class="main-container">
+    <!-- Left Sidebar -->
+    <div class="sidebar">
+      <div class="sidebar-section">
+        <h2>SECTIONS</h2>
+        <div class="show-bars-toggle">
+          <label>
+            <input type="checkbox" id="showAllBarsCheckbox">
+            Show All Bars
+          </label>
+        </div>
+        <div class="section-list" id="sectionList">
+          <!-- Sections will be rendered here -->
+        </div>
+      </div>
+
+      <div class="sidebar-section">
+        <h2>VAMPS</h2>
+        <div class="predefined-vamps" id="predefinedVamps">
+          <!-- Predefined vamps will be rendered here -->
+        </div>
+
+        <div class="custom-vamp">
+          <h3>Custom Vamp</h3>
+          <div class="vamp-controls">
+            <div class="control-row">
+              <label>Start:</label>
+              <select id="customVampStart"></select>
+            </div>
+            <div class="control-row">
+              <label>End:</label>
+              <select id="customVampEnd"></select>
+            </div>
+            <div class="control-row">
+              <label>Safety:</label>
+              <select id="customVampSafety">
+                <option value="0" selected>0</option>
+                <option value="1">1</option>
+                <option value="2">2</option>
+                <option value="3">3</option>
+                <option value="4">4</option>
+              </select>
+            </div>
+          </div>
+          <button class="btn btn-vamp" id="enableCustomVampBtn">ENABLE VAMP</button>
+        </div>
+      </div>
+
+      <div class="sidebar-section">
+        <h2>TEMPO</h2>
+        <div class="tempo-display" id="tempoDisplay">120 BPM</div>
+        <div class="tempo-controls">
+          <button class="btn btn-tempo" data-delta="-5">−5</button>
+          <button class="btn btn-tempo" data-delta="-1">−1</button>
+          <button class="btn btn-tempo" data-delta="0">RESET</button>
+          <button class="btn btn-tempo" data-delta="1">+1</button>
+          <button class="btn btn-tempo" data-delta="5">+5</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Center/Right Area -->
+    <div class="main-area">
+      <!-- Info Panel (top-right) -->
+      <div class="info-panel">
+        <div class="info-section" id="currentSection">--</div>
+        <div class="info-bar" id="currentBar">Bar --</div>
+        <div class="info-chords" id="currentChords">--</div>
+        <div class="info-time-sig" id="timeSignatureDisplay">4/4 @ 120 BPM</div>
+      </div>
+
+      <!-- Beat Indicators (centered) -->
+      <div class="beat-indicators-container">
+        <div class="beat-indicators" id="beatIndicators">
+          <!-- Beat lights will be dynamically generated -->
+        </div>
+      </div>
+
+      <!-- Progress line - vertical bar moving left to right -->
+      <div class="progress-line" id="progressLine"></div>
+
+      <!-- Vamp Active Banner -->
+      <div class="vamp-banner" id="vampBanner" style="display: none;">
+        <div class="vamp-banner-content">
+          ⚠️ VAMP ACTIVE: <span id="vampBannerText">--</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Bottom Control Bar -->
+  <div class="bottom-bar">
+    <div class="transport-controls">
+      <button class="btn btn-stop" id="stopBtn">
+        <span class="btn-icon">◼</span>
+        <span class="btn-label">STOP</span>
+      </button>
+      <button class="btn btn-play" id="playBtn">
+        <span class="btn-icon">▶</span>
+        <span class="btn-label">PLAY</span>
+      </button>
+      <button class="btn btn-pause" id="pauseBtn">
+        <span class="btn-icon">⏸</span>
+        <span class="btn-label">PAUSE</span>
+      </button>
+      <div class="song-selector-group">
+        <select class="song-select" id="songSelect">
+          <option value="">Select song...</option>
+        </select>
+        <button class="btn btn-next" id="nextSongBtn">
+          <span class="btn-icon">⏭</span>
+          <span class="btn-label">NEXT SONG</span>
+        </button>
+      </div>
+    </div>
+
+    <div class="vamp-transport-controls">
+      <button class="btn btn-safety-bar" id="safetyBarBtn">
+        <span class="btn-icon">🛡</span>
+        <span class="btn-label">SAFETY BAR</span>
+        <span class="safety-count" id="safetyCount" style="display: none;">0</span>
+      </button>
+      <button class="btn btn-end-vamp" id="endVampBtn">
+        <span class="btn-icon">✕</span>
+        <span class="btn-label">END VAMP</span>
+      </button>
+    </div>
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="conductor.js"></script>
+</body>
+</html>

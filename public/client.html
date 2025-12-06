@@ -325,6 +325,62 @@
       text-align: center;
       font-family: monospace;
     }
+
+    /* Vamp Warning Overlay */
+    .vamp-warning {
+      position: fixed;
+      bottom: 10%;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(255, 140, 0, 0.95);
+      padding: 40px 60px;
+      border-radius: 20px;
+      z-index: 100;
+      box-shadow: 0 0 50px rgba(255, 140, 0, 0.8);
+      animation: vamp-pulse 2s ease-in-out infinite;
+    }
+
+    .vamp-warning-content {
+      font-size: 3em;
+      font-weight: 900;
+      color: #000;
+      text-align: center;
+      letter-spacing: 3px;
+    }
+
+    @keyframes vamp-pulse {
+      0%, 100% {
+        opacity: 0.9;
+        transform: translate(-50%, -50%) scale(1);
+      }
+      50% {
+        opacity: 1;
+        transform: translate(-50%, -50%) scale(1.05);
+      }
+    }
+
+    /* Conductor View Button */
+    .conductor-button {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      padding: 12px 20px;
+      background: rgba(58, 123, 200, 0.9);
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      z-index: 50;
+      transition: all 0.2s ease;
+    }
+
+    .conductor-button:hover {
+      background: rgba(58, 123, 200, 1);
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(58, 123, 200, 0.5);
+    }
   </style>
 </head>
 <body>
@@ -349,6 +405,16 @@
   <div class="waiting-message" id="waitingMessage">
     Waiting for playback to start...
   </div>
+
+  <!-- Vamp Warning Overlay -->
+  <div class="vamp-warning" id="vampWarning" style="display: none;">
+    <div class="vamp-warning-content">
+      ⚠️ VAMP ACTIVE - FOLLOW CONDUCTOR
+    </div>
+  </div>
+
+  <!-- Conductor View Button -->
+  <button class="conductor-button" onclick="window.location.href='/conductor'">Conductor View</button>
 
   <!-- Click Track Controls -->
   <div class="click-controls" id="clickControls" style="display: none;">

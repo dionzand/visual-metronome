@@ -1,0 +1,607 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Arial', sans-serif;
+  background-color: #1a1a1a;
+  color: #fff;
+  overflow: hidden;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Header Bar */
+.header-bar {
+  background-color: #2a2a2a;
+  padding: 15px 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 2px solid #3a3a3a;
+  font-size: 18px;
+}
+
+.status-section {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.status-indicator {
+  font-size: 20px;
+  color: #dc3545;
+}
+
+.status-indicator.connected {
+  color: #28a745;
+}
+
+.song-info {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+
+.separator {
+  color: #666;
+}
+
+/* Main Container */
+.main-container {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+
+/* Sidebar */
+.sidebar {
+  width: 350px;
+  background-color: #2a2a2a;
+  padding: 20px;
+  overflow-y: auto;
+  border-right: 2px solid #3a3a3a;
+}
+
+.sidebar-section {
+  margin-bottom: 30px;
+}
+
+.sidebar-section h2 {
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  margin-bottom: 15px;
+  color: #aaa;
+  border-bottom: 1px solid #444;
+  padding-bottom: 8px;
+}
+
+.sidebar-section h3 {
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 10px;
+  color: #999;
+}
+
+/* Show Bars Toggle */
+.show-bars-toggle {
+  margin-bottom: 15px;
+}
+
+.show-bars-toggle label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  font-size: 14px;
+  user-select: none;
+}
+
+.show-bars-toggle input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+}
+
+/* Section List */
+.section-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.section-item,
+.bar-item {
+  background-color: #333;
+  padding: 15px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-size: 16px;
+  border-left: 4px solid transparent;
+  min-height: 60px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.section-item:hover,
+.bar-item:hover {
+  background-color: #3a7bc8;
+  border-left-color: #5a9de8;
+}
+
+.section-item.active,
+.bar-item.active {
+  background-color: #3a7bc8;
+  border-left-color: #fff;
+  font-weight: 600;
+}
+
+.section-name {
+  font-weight: 600;
+  font-size: 18px;
+}
+
+.section-details,
+.bar-details {
+  font-size: 13px;
+  color: #bbb;
+  margin-top: 4px;
+}
+
+.bar-item {
+  min-height: 50px;
+  padding: 12px 15px;
+  margin-left: 15px;
+}
+
+.bar-number {
+  font-weight: 600;
+  color: #fff;
+}
+
+/* Vamps */
+.predefined-vamps {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 15px;
+}
+
+.vamp-item {
+  background-color: #ff8c00;
+  color: #000;
+  padding: 15px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-weight: 600;
+}
+
+.vamp-item:hover {
+  background-color: #ffa500;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(255, 140, 0, 0.5);
+}
+
+.vamp-name {
+  font-size: 16px;
+}
+
+.vamp-details {
+  font-size: 13px;
+  margin-top: 4px;
+  opacity: 0.8;
+}
+
+.custom-vamp {
+  margin-top: 15px;
+}
+
+.vamp-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.control-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.control-row label {
+  min-width: 60px;
+  font-size: 14px;
+}
+
+.control-row select {
+  flex: 1;
+  padding: 10px;
+  background-color: #333;
+  color: #fff;
+  border: 1px solid #555;
+  border-radius: 6px;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.control-row select:focus {
+  outline: none;
+  border-color: #3a7bc8;
+}
+
+/* Tempo Controls */
+.tempo-display {
+  font-size: 32px;
+  font-weight: 700;
+  text-align: center;
+  margin-bottom: 15px;
+  color: #fff;
+}
+
+.tempo-controls {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 8px;
+}
+
+/* Main Area */
+.main-area {
+  flex: 1;
+  padding: 20px;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Beat Indicators (centered) */
+.beat-indicators-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 15px;
+}
+
+.beat-indicators {
+  display: flex;
+  gap: 20px;
+  flex-wrap: wrap;
+  justify-content: center;
+  max-width: 90vw;
+}
+
+.beat-light {
+  width: 100px;
+  height: 100px;
+  border-radius: 50%;
+  background-color: rgba(100, 0, 0, 0.3);
+  box-shadow: 0 0 15px rgba(0, 0, 0, 0.5);
+  transition: all 0.1s ease;
+  flex-shrink: 0;
+}
+
+/* Progress line - vertical line moving left to right */
+.progress-line {
+  position: absolute;
+  top: 0;
+  left: 0%;
+  width: 4px;
+  height: 100%;
+  background: #ff0000;
+  transition: none;
+  z-index: 5;
+  transform: translateX(-50%);
+}
+
+/* Info Panel (top-right) */
+.info-panel {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  text-align: right;
+  max-width: 400px;
+}
+
+.info-section {
+  font-size: 24px;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.9);
+  letter-spacing: 2px;
+  margin-bottom: 8px;
+}
+
+.info-bar {
+  font-size: 36px;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.85);
+  letter-spacing: 1px;
+  margin-bottom: 10px;
+}
+
+.info-chords {
+  font-size: 24px;
+  font-weight: 600;
+  color: #ffcc00;
+  margin-bottom: 8px;
+}
+
+.info-time-sig {
+  font-size: 16px;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+/* Vamp Banner */
+.vamp-banner {
+  position: absolute;
+  top: 20%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: rgba(255, 140, 0, 0.95);
+  padding: 30px 50px;
+  border-radius: 15px;
+  box-shadow: 0 0 40px rgba(255, 140, 0, 0.7);
+  animation: vamp-pulse 2s ease-in-out infinite;
+  z-index: 10;
+}
+
+.vamp-banner-content {
+  font-size: 32px;
+  font-weight: 900;
+  color: #000;
+  text-align: center;
+  letter-spacing: 3px;
+}
+
+@keyframes vamp-pulse {
+  0%, 100% {
+    opacity: 0.9;
+    transform: translate(-50%, -50%) scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1.05);
+  }
+}
+
+/* Bottom Bar */
+.bottom-bar {
+  background-color: #2a2a2a;
+  padding: 20px;
+  border-top: 2px solid #3a3a3a;
+  display: flex;
+  gap: 20px;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.transport-controls,
+.vamp-transport-controls {
+  display: flex;
+  gap: 15px;
+  align-items: center;
+}
+
+.song-selector-group {
+  display: flex;
+  gap: 15px;
+  align-items: center;
+}
+
+.song-select {
+  padding: 8px 12px;
+  background: #333;
+  color: #fff;
+  border: 2px solid #555;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  min-width: 200px;
+}
+
+.song-select:focus {
+  outline: none;
+  border-color: #3a7bc8;
+}
+
+/* Buttons */
+.btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: 12px 20px;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  font-weight: 700;
+  transition: all 0.2s ease;
+  font-family: inherit;
+  min-width: 80px;
+  min-height: 80px;
+}
+
+.btn-icon {
+  font-size: 28px;
+}
+
+.btn-label {
+  font-size: 12px;
+  letter-spacing: 1px;
+}
+
+.btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+}
+
+.btn:active {
+  transform: translateY(0);
+}
+
+/* Transport Button Colors */
+.btn-stop {
+  background-color: #dc3545;
+  color: #fff;
+}
+
+.btn-stop:hover {
+  background-color: #c82333;
+}
+
+.btn-play {
+  background-color: #28a745;
+  color: #fff;
+}
+
+.btn-play:hover {
+  background-color: #218838;
+}
+
+.btn-pause {
+  background-color: #ffc107;
+  color: #000;
+}
+
+.btn-pause:hover {
+  background-color: #e0a800;
+}
+
+.btn-next {
+  background-color: #17a2b8;
+  color: #fff;
+}
+
+.btn-next:hover {
+  background-color: #138496;
+}
+
+/* Vamp Transport Buttons */
+.btn-safety-bar {
+  background-color: #ff6600;
+  color: #fff;
+  min-width: 140px;
+  position: relative;
+}
+
+.btn-safety-bar:hover {
+  background-color: #ff7700;
+}
+
+.safety-count {
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  background-color: #fff;
+  color: #ff6600;
+  width: 25px;
+  height: 25px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  font-weight: 900;
+}
+
+.btn-end-vamp {
+  background-color: #6c757d;
+  color: #fff;
+}
+
+.btn-end-vamp:hover {
+  background-color: #5a6268;
+}
+
+.btn-end-vamp:disabled,
+.btn-safety-bar:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-end-vamp:disabled:hover,
+.btn-safety-bar:disabled:hover {
+  transform: none;
+  box-shadow: none;
+}
+
+/* Tempo Buttons */
+.btn-tempo {
+  background-color: #555;
+  color: #fff;
+  min-width: 0;
+  min-height: 60px;
+  padding: 10px;
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.btn-tempo:hover {
+  background-color: #666;
+}
+
+.btn-tempo[data-delta="0"] {
+  background-color: #3a7bc8;
+}
+
+.btn-tempo[data-delta="0"]:hover {
+  background-color: #4a8bd8;
+}
+
+/* Vamp Button */
+.btn-vamp {
+  background-color: #ff8c00;
+  color: #000;
+  width: 100%;
+  min-height: 60px;
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.btn-vamp:hover {
+  background-color: #ffa500;
+}
+
+/* Scrollbar Styling */
+.sidebar::-webkit-scrollbar {
+  width: 8px;
+}
+
+.sidebar::-webkit-scrollbar-track {
+  background: #1a1a1a;
+}
+
+.sidebar::-webkit-scrollbar-thumb {
+  background: #555;
+  border-radius: 4px;
+}
+
+.sidebar::-webkit-scrollbar-thumb:hover {
+  background: #666;
+}
+
+/* Responsive */
+@media (max-width: 1024px) {
+  .sidebar {
+    width: 280px;
+  }
+
+  .current-section {
+    font-size: 48px;
+  }
+
+  .current-chords {
+    font-size: 36px;
+  }
+}

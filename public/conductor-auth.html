@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Conductor Authentication</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      color: #ffffff;
+    }
+
+    .auth-container {
+      background: rgba(255, 255, 255, 0.05);
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 20px;
+      padding: 50px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+      text-align: center;
+      max-width: 400px;
+      width: 90%;
+    }
+
+    h1 {
+      color: #ff8c00;
+      margin-bottom: 15px;
+      font-size: 28px;
+      font-weight: 600;
+    }
+
+    .subtitle {
+      color: #aaa;
+      margin-bottom: 40px;
+      font-size: 14px;
+    }
+
+    .input-group {
+      margin-bottom: 25px;
+    }
+
+    label {
+      display: block;
+      margin-bottom: 10px;
+      color: #ccc;
+      font-size: 14px;
+      text-align: left;
+    }
+
+    input[type="text"] {
+      width: 100%;
+      padding: 15px;
+      background: rgba(255, 255, 255, 0.1);
+      border: 2px solid rgba(255, 255, 255, 0.2);
+      border-radius: 10px;
+      color: #ffffff;
+      font-size: 24px;
+      text-align: center;
+      letter-spacing: 8px;
+      outline: none;
+      transition: all 0.3s ease;
+    }
+
+    input[type="text"]:focus {
+      border-color: #ff8c00;
+      background: rgba(255, 255, 255, 0.15);
+    }
+
+    button {
+      width: 100%;
+      padding: 15px;
+      background: linear-gradient(135deg, #ff8c00 0%, #ff6b00 100%);
+      border: none;
+      border-radius: 10px;
+      color: #ffffff;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      margin-top: 10px;
+    }
+
+    button:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 5px 15px rgba(255, 140, 0, 0.4);
+    }
+
+    button:active {
+      transform: translateY(0);
+    }
+
+    .error {
+      color: #ff4444;
+      margin-top: 15px;
+      font-size: 14px;
+      display: none;
+      animation: shake 0.3s;
+    }
+
+    @keyframes shake {
+      0%, 100% { transform: translateX(0); }
+      25% { transform: translateX(-10px); }
+      75% { transform: translateX(10px); }
+    }
+
+    .success {
+      color: #44ff44;
+      margin-top: 15px;
+      font-size: 14px;
+      display: none;
+    }
+
+    .logo {
+      font-size: 48px;
+      margin-bottom: 20px;
+    }
+  </style>
+</head>
+<body>
+  <div class="auth-container">
+    <div class="logo">🎵</div>
+    <h1>Conductor Access</h1>
+    <p class="subtitle">Enter your 4-digit password to continue</p>
+
+    <form id="authForm">
+      <div class="input-group">
+        <label for="password">Password</label>
+        <input
+          type="text"
+          id="password"
+          maxlength="4"
+          pattern="[0-9]{4}"
+          placeholder="••••"
+          autocomplete="off"
+          autofocus
+          required
+        >
+      </div>
+
+      <button type="submit">Enter Conductor View</button>
+    </form>
+
+    <div class="error" id="error"></div>
+    <div class="success" id="success">Access granted! Redirecting...</div>
+  </div>
+
+  <script>
+    const form = document.getElementById('authForm');
+    const passwordInput = document.getElementById('password');
+    const errorDiv = document.getElementById('error');
+    const successDiv = document.getElementById('success');
+
+    // Only allow numbers
+    passwordInput.addEventListener('input', (e) => {
+      e.target.value = e.target.value.replace(/[^0-9]/g, '');
+    });
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      const password = passwordInput.value;
+
+      if (password.length !== 4) {
+        showError('Password must be exactly 4 digits');
+        return;
+      }
+
+      try {
+        const response = await fetch('/conductor-auth', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ password })
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+          // Success! Redirect to conductor view
+          errorDiv.style.display = 'none';
+          successDiv.style.display = 'block';
+
+          setTimeout(() => {
+            window.location.href = '/conductor';
+          }, 800);
+        } else {
+          showError('Invalid password. Please try again.');
+          passwordInput.value = '';
+          passwordInput.focus();
+        }
+      } catch (error) {
+        showError('Connection error. Please try again.');
+        console.error('Authentication error:', error);
+      }
+    });
+
+    function showError(message) {
+      errorDiv.textContent = message;
+      errorDiv.style.display = 'block';
+      setTimeout(() => {
+        errorDiv.style.display = 'none';
+      }, 3000);
+    }
+  </script>
+</body>
+</html>

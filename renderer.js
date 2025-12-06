@@ -22,6 +22,7 @@ async function showConfirm(message) {
 
 // State
 let sections = [];
+let vamps = [];
 let serverRunning = false;
 let setlist = [];
 let currentSongIndex = 0;
@@ -86,6 +87,9 @@ function setupEventListeners() {
 
   // Sections
   document.getElementById('addSection').addEventListener('click', addSection);
+
+  // Vamps
+  document.getElementById('addVamp').addEventListener('click', addVamp);
 
   // Countoff setting
   document.getElementById('countoff').addEventListener('change', () => {
@@ -1155,6 +1159,7 @@ async function deleteSection(sectionIndex) {
 
 function calculateTotalBars() {
   totalBars = sections.reduce((sum, section) => sum + section.bars.length, 0);
+  updateVampBarDropdowns();
 }
 
 function updateTempoTransitionMaxValues() {
@@ -1223,6 +1228,195 @@ function handleTapTempo(sectionIndex, buttonElement) {
       updateServerIfRunning();
     }
   }
+}
+
+// Vamp management
+function addVamp() {
+  const vampNumber = vamps.length + 1;
+  vamps.push({
+    name: `Vamp ${vampNumber}`,
+    startBar: 1,
+    endBar: Math.min(4, totalBars),
+    safetyBars: 0
+  });
+  renderVamps();
+  renderPlaybackVamps();
+  updateServerIfRunning();
+}
+
+async function deleteVamp(vampIndex) {
+  if (await showConfirm(`Delete vamp "${vamps[vampIndex].name}"?`)) {
+    vamps.splice(vampIndex, 1);
+    renderVamps();
+    renderPlaybackVamps();
+    updateServerIfRunning();
+  }
+}
+
+function renderVamps() {
+  const container = document.getElementById('vampsContainer');
+
+  if (vamps.length === 0) {
+    container.innerHTML = '<div style="text-align: center; color: #999; padding: 20px;">No vamps defined</div>';
+    return;
+  }
+
+  container.innerHTML = '';
+
+  vamps.forEach((vamp, vampIndex) => {
+    const vampDiv = document.createElement('div');
+    vampDiv.className = 'vamp-item';
+
+    vampDiv.innerHTML = `
+      <div class="vamp-header">
+        <div class="vamp-field">
+          <label>Name:</label>
+          <input type="text"
+                 class="vamp-name"
+                 data-vamp="${vampIndex}"
+                 value="${vamp.name}">
+        </div>
+
+        <div class="vamp-field">
+          <label>Start Bar:</label>
+          <select class="vamp-start-bar" data-vamp="${vampIndex}">
+            ${generateVampBarOptions(vamp.startBar)}
+          </select>
+        </div>
+
+        <div class="vamp-field">
+          <label>End Bar:</label>
+          <select class="vamp-end-bar" data-vamp="${vampIndex}">
+            ${generateVampBarOptions(vamp.endBar)}
+          </select>
+        </div>
+
+        <div class="vamp-field">
+          <label>Safety Bars:</label>
+          <input type="number"
+                 class="vamp-safety-bars"
+                 data-vamp="${vampIndex}"
+                 value="${vamp.safetyBars}"
+                 min="0"
+                 max="10">
+        </div>
+
+        <div class="vamp-field">
+          <label>&nbsp;</label>
+          <button class="delete-vamp-btn" data-vamp="${vampIndex}" title="Delete this vamp">✕ Delete</button>
+        </div>
+      </div>
+    `;
+
+    container.appendChild(vampDiv);
+  });
+
+  // Add event listeners
+  attachVampEventListeners();
+}
+
+function generateVampBarOptions(selectedBar) {
+  let options = '';
+  for (let i = 1; i <= totalBars; i++) {
+    const selected = selectedBar === i ? 'selected' : '';
+    options += `<option value="${i}" ${selected}>Bar ${i}</option>`;
+  }
+  return options;
+}
+
+function attachVampEventListeners() {
+  // Vamp name
+  document.querySelectorAll('.vamp-name').forEach(input => {
+    input.addEventListener('input', (e) => {
+      const vampIndex = parseInt(e.target.dataset.vamp);
+      vamps[vampIndex].name = e.target.value;
+    });
+    input.addEventListener('blur', () => {
+      renderPlaybackVamps();
+      updateServerIfRunning();
+    });
+  });
+
+  // Start bar
+  document.querySelectorAll('.vamp-start-bar').forEach(select => {
+    select.addEventListener('change', (e) => {
+      const vampIndex = parseInt(e.target.dataset.vamp);
+      vamps[vampIndex].startBar = parseInt(e.target.value);
+      renderPlaybackVamps();
+      updateServerIfRunning();
+    });
+  });
+
+  // End bar
+  document.querySelectorAll('.vamp-end-bar').forEach(select => {
+    select.addEventListener('change', (e) => {
+      const vampIndex = parseInt(e.target.dataset.vamp);
+      vamps[vampIndex].endBar = parseInt(e.target.value);
+      renderPlaybackVamps();
+      updateServerIfRunning();
+    });
+  });
+
+  // Safety bars
+  document.querySelectorAll('.vamp-safety-bars').forEach(input => {
+    input.addEventListener('input', (e) => {
+      const vampIndex = parseInt(e.target.dataset.vamp);
+      vamps[vampIndex].safetyBars = parseInt(e.target.value) || 0;
+    });
+    input.addEventListener('blur', () => {
+      renderPlaybackVamps();
+      updateServerIfRunning();
+    });
+  });
+
+  // Delete vamp buttons
+  document.querySelectorAll('.delete-vamp-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      const vampIndex = parseInt(e.target.dataset.vamp);
+      deleteVamp(vampIndex);
+    });
+  });
+}
+
+function updateVampBarDropdowns() {
+  // Re-render vamps to update bar options
+  if (vamps.length > 0) {
+    renderVamps();
+  }
+}
+
+// Render vamps in Playback Control tab
+function renderPlaybackVamps() {
+  const container = document.getElementById('playbackVampsContainer');
+  if (!container) return;
+
+  if (!vamps || vamps.length === 0) {
+    container.innerHTML = '<div style="color: #999; text-align: center; padding: 20px;">No vamps defined in current score</div>';
+    return;
+  }
+
+  container.innerHTML = '';
+
+  vamps.forEach((vamp) => {
+    const vampItem = document.createElement('div');
+    vampItem.className = 'playback-vamp-item';
+    vampItem.innerHTML = `
+      <div class="playback-vamp-name">${vamp.name}</div>
+      <div class="playback-vamp-details">Bars ${vamp.startBar}-${vamp.endBar}</div>
+      <div class="playback-vamp-details">Safety: ${vamp.safetyBars || 0}</div>
+    `;
+    vampItem.addEventListener('click', async () => {
+      if (await ipcRenderer.invoke('enable-vamp', {
+        startBar: vamp.startBar,
+        endBar: vamp.endBar,
+        safetyBars: vamp.safetyBars || 0,
+        name: vamp.name
+      })) {
+        await showDialog('Vamp Enabled', `${vamp.name} is now active (Bars ${vamp.startBar}-${vamp.endBar})`);
+      }
+    });
+    container.appendChild(vampItem);
+  });
 }
 
 // Loop & Navigation
@@ -1538,6 +1732,7 @@ function getCurrentScoreData() {
     name: scoreName,
     countoff: parseInt(document.getElementById('countoff').value) || 0,
     sections: sections,
+    vamps: vamps,
     loop: {
       enabled: loopEnabled,
       start: loopStart,
@@ -1552,6 +1747,7 @@ function loadScoreData(data) {
   document.getElementById('scoreName').value = scoreName;
   document.getElementById('countoff').value = data.countoff || 0;
   sections = data.sections || [];
+  vamps = data.vamps || [];
 
   if (data.loop) {
     loopEnabled = data.loop.enabled || false;
@@ -1563,6 +1759,8 @@ function loadScoreData(data) {
   }
 
   renderSections();
+  renderVamps();
+  renderPlaybackVamps();
   calculateTotalBars();
 }
 
@@ -1571,6 +1769,7 @@ async function newScore() {
     scoreName = 'Untitled Score';
     document.getElementById('scoreName').value = scoreName;
     sections = [];
+    vamps = [];
     loopEnabled = false;
     loopStart = null;
     loopEnd = null;
@@ -1578,6 +1777,7 @@ async function newScore() {
     document.getElementById('loopStart').value = '';
     document.getElementById('loopEnd').value = '';
     addSection();
+    renderVamps();
   }
 }
 
@@ -1812,7 +2012,10 @@ async function startServer() {
   // Read port from UI
   const port = parseInt(document.getElementById('serverPort').value) || 3000;
 
-  const result = await ipcRenderer.invoke('start-server', { scoreData, displaySettings, repeatSong, oscSettings, midiSettings, port });
+  // Read conductor password from UI
+  const conductorPassword = document.getElementById('conductorPassword').value || '1234';
+
+  const result = await ipcRenderer.invoke('start-server', { scoreData, displaySettings, repeatSong, oscSettings, midiSettings, port, conductorPassword });
 
   // Hide loading indicator
   document.getElementById('serverLoading').style.display = 'none';

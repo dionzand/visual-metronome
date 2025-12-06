@@ -163,7 +163,7 @@ ipcMain.handle('start-server', async (event, data) => {
     metronomeServer.stop();
   }
 
-  const { scoreData, displaySettings, repeatSong, oscSettings, midiSettings, port } = data;
+  const { scoreData, displaySettings, repeatSong, oscSettings, midiSettings, port, conductorPassword } = data;
   const requestedPort = port || 3000;
 
   // Try to start server with port fallback
@@ -173,7 +173,7 @@ ipcMain.handle('start-server', async (event, data) => {
 
   for (const tryPort of suggestedPorts) {
     try {
-      metronomeServer = new MetronomeServer(scoreData, displaySettings, repeatSong, oscSettings, midiSettings);
+      metronomeServer = new MetronomeServer(scoreData, displaySettings, repeatSong, oscSettings, midiSettings, conductorPassword);
       startResult = await metronomeServer.start(tryPort);
       attemptedPort = tryPort;
       break; // Success!
@@ -340,6 +340,21 @@ ipcMain.handle('update-score', async (event, scoreData) => {
     return { success: true };
   }
   return { success: false, error: 'Server not started' };
+});
+
+ipcMain.handle('enable-vamp', async (event, vampData) => {
+  if (metronomeServer) {
+    metronomeServer.vampState = {
+      enabled: true,
+      startBar: vampData.startBar,
+      endBar: vampData.endBar,
+      safetyBarsRemaining: 0,
+      predefinedVampName: vampData.name
+    };
+    metronomeServer.io.emit('vamp-state-update', metronomeServer.vampState);
+    return true;
+  }
+  return false;
 });
 
 // OSC IPC handlers
