@@ -85,6 +85,11 @@ function setupEventListeners() {
     scoreName = e.target.value;
   });
 
+  // Video background settings
+  document.getElementById('videoOpacitySetting').addEventListener('input', (e) => {
+    document.getElementById('videoOpacitySettingDisplay').textContent = `${e.target.value}%`;
+  });
+
   // Sections
   document.getElementById('addSection').addEventListener('click', addSection);
 
@@ -1480,6 +1485,11 @@ async function addToSetlist() {
   renderSetlist();
   updateSetlistControls();
   updateSongSelect();
+
+  // Update server with new setlist
+  if (serverRunning) {
+    await ipcRenderer.invoke('update-setlist', setlist, currentSongIndex);
+  }
 }
 
 async function loadScoreToSetlist() {
@@ -1492,10 +1502,15 @@ async function loadScoreToSetlist() {
     updateSetlistControls();
     updateSongSelect();
     await showAlert(`Added "${scoreData.name || 'Untitled'}" to setlist!`);
+
+    // Update server with new setlist
+    if (serverRunning) {
+      await ipcRenderer.invoke('update-setlist', setlist, currentSongIndex);
+    }
   }
 }
 
-function moveSetlistItemUp() {
+async function moveSetlistItemUp() {
   if (selectedSetlistIndex > 0) {
     const temp = setlist[selectedSetlistIndex];
     setlist[selectedSetlistIndex] = setlist[selectedSetlistIndex - 1];
@@ -1508,10 +1523,15 @@ function moveSetlistItemUp() {
     }
     renderSetlist();
     updateSongSelect();
+
+    // Update server with reordered setlist
+    if (serverRunning) {
+      await ipcRenderer.invoke('update-setlist', setlist, currentSongIndex);
+    }
   }
 }
 
-function moveSetlistItemDown() {
+async function moveSetlistItemDown() {
   if (selectedSetlistIndex >= 0 && selectedSetlistIndex < setlist.length - 1) {
     const temp = setlist[selectedSetlistIndex];
     setlist[selectedSetlistIndex] = setlist[selectedSetlistIndex + 1];
@@ -1524,6 +1544,11 @@ function moveSetlistItemDown() {
     }
     renderSetlist();
     updateSongSelect();
+
+    // Update server with reordered setlist
+    if (serverRunning) {
+      await ipcRenderer.invoke('update-setlist', setlist, currentSongIndex);
+    }
   }
 }
 
@@ -1537,6 +1562,11 @@ async function clearSetlist() {
     renderSetlist();
     updateSetlistControls();
     updateSongSelect();
+
+    // Update server with cleared setlist
+    if (serverRunning) {
+      await ipcRenderer.invoke('update-setlist', setlist, currentSongIndex);
+    }
   }
 }
 
@@ -1570,6 +1600,11 @@ async function loadSetlist() {
       updateSetlistControls();
       updateSongSelect();
       await showAlert(`Loaded setlist with ${setlist.length} songs!`);
+
+      // Update server with loaded setlist
+      if (serverRunning) {
+        await ipcRenderer.invoke('update-setlist', setlist, currentSongIndex);
+      }
     } else {
       await showAlert('Invalid setlist file format.');
     }
@@ -1641,6 +1676,8 @@ async function loadSongFromSetlist(index) {
 
   if (serverRunning) {
     await restartServer();
+    // Update the server's current song index for conductor view
+    await ipcRenderer.invoke('update-current-song-index', currentSongIndex);
   }
 }
 
@@ -1656,6 +1693,11 @@ async function removeSongFromSetlist(index) {
     renderSetlist();
     updateSetlistControls();
     updateSongSelect();
+
+    // Update server with modified setlist
+    if (serverRunning) {
+      await ipcRenderer.invoke('update-setlist', setlist, currentSongIndex);
+    }
   }
 }
 
@@ -1698,6 +1740,8 @@ async function previousSong() {
 
   if (serverRunning) {
     await restartServer();
+    // Update the server's current song index for conductor view
+    await ipcRenderer.invoke('update-current-song-index', currentSongIndex);
   }
 }
 
@@ -1711,6 +1755,8 @@ async function nextSong() {
 
   if (serverRunning) {
     await restartServer();
+    // Update the server's current song index for conductor view
+    await ipcRenderer.invoke('update-current-song-index', currentSongIndex);
   }
 }
 
@@ -1738,7 +1784,11 @@ function getCurrentScoreData() {
       start: loopStart,
       end: loopEnd
     },
-    tempoPercentage: tempoPercentage
+    tempoPercentage: tempoPercentage,
+    videoBackground: {
+      path: document.getElementById('videoBackgroundPath').value || '',
+      opacity: parseInt(document.getElementById('videoOpacitySetting').value) || 30
+    }
   };
 }
 
@@ -1756,6 +1806,18 @@ function loadScoreData(data) {
 
     if (loopStart) document.getElementById('loopStart').value = loopStart;
     if (loopEnd) document.getElementById('loopEnd').value = loopEnd;
+  }
+
+  // Load video background settings
+  if (data.videoBackground) {
+    document.getElementById('videoBackgroundPath').value = data.videoBackground.path || '';
+    document.getElementById('videoOpacitySetting').value = data.videoBackground.opacity || 30;
+    document.getElementById('videoOpacitySettingDisplay').textContent = `${data.videoBackground.opacity || 30}%`;
+  } else {
+    // Reset to defaults if no video background in score
+    document.getElementById('videoBackgroundPath').value = '';
+    document.getElementById('videoOpacitySetting').value = 30;
+    document.getElementById('videoOpacitySettingDisplay').textContent = '30%';
   }
 
   renderSections();
@@ -1776,6 +1838,10 @@ async function newScore() {
     document.getElementById('countoff').value = 1;
     document.getElementById('loopStart').value = '';
     document.getElementById('loopEnd').value = '';
+    // Reset video background
+    document.getElementById('videoBackgroundPath').value = '';
+    document.getElementById('videoOpacitySetting').value = 30;
+    document.getElementById('videoOpacitySettingDisplay').textContent = '30%';
     addSection();
     renderVamps();
   }
@@ -2015,7 +2081,7 @@ async function startServer() {
   // Read conductor password from UI
   const conductorPassword = document.getElementById('conductorPassword').value || '1234';
 
-  const result = await ipcRenderer.invoke('start-server', { scoreData, displaySettings, repeatSong, oscSettings, midiSettings, port, conductorPassword });
+  const result = await ipcRenderer.invoke('start-server', { scoreData, displaySettings, repeatSong, oscSettings, midiSettings, port, conductorPassword, setlist, currentSongIndex });
 
   // Hide loading indicator
   document.getElementById('serverLoading').style.display = 'none';
@@ -2275,6 +2341,15 @@ ipcRenderer.on('song-ended', async () => {
 // Listen for sync offset updates
 ipcRenderer.on('sync-offset-update', (event, offset) => {
   document.getElementById('syncOffsetDisplay').textContent = `${offset >= 0 ? '+' : ''}${offset} ms`;
+});
+
+// Listen for conductor view song navigation requests
+ipcRenderer.on('conductor-next-song', async () => {
+  await nextSong();
+});
+
+ipcRenderer.on('conductor-go-to-song', async (event, songIndex) => {
+  await loadSongFromSetlist(songIndex);
 });
 
 // Manual sync functions

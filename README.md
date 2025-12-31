@@ -23,6 +23,9 @@ A professional score-based visual metronome application with WebSocket synchroni
 - **Conductor view** - Dedicated password-protected control interface for live performance
 - **Vamps with safety bars** - Define repeating sections with conductor-triggered exits
 - **Synchronized click track** - Audio metronome clicks on all client devices with per-client delay adjustment
+- **Video background** - Stream video backgrounds that sync with playback for visual performances
+- **Beat-level display** - Show current beat within bar (e.g., "5|3" for beat 3 in bar 5)
+- **Runtime display** - Show elapsed time from start of song in hh:mm:ss.ff format
 - **Gradual tempo transitions** - Smooth tempo changes over specified bars
 - **Manual sync control** - Fine-tune timing with millisecond and beat-level adjustments
 - **Loop current bar** - Practice tool to repeat single bar indefinitely
@@ -85,6 +88,22 @@ npm run build
 
 #### Score Name
 Enter a name for your score. This will be displayed on client devices during playback.
+
+#### Video Background
+- **Video File Path** - Full path to a video file to display as background on all clients (e.g., `C:\Videos\background.mp4`)
+- **Video Opacity** - Transparency of the video background (0-100%, default: 30%)
+
+The video will:
+- Stream from the Electron app to all connected clients
+- Start/pause/stop in sync with score playback
+- Support multiple formats: MP4, WebM, OGG, MOV, AVI, MKV
+- Display at the specified opacity behind all UI elements
+- Reset to beginning when playback is stopped
+
+**Use cases:**
+- Sync to music videos or conductor recordings
+- Display choreography videos for dance performances
+- Show visual cues or backing visuals
 
 #### Playback Settings
 - **Countoff (bars)** - Number of countoff bars before the song starts (0-4)
@@ -235,7 +254,7 @@ Fine-tune playback timing to sync with external audio:
 Customize the appearance of client displays:
 - **Light Color** - Color of the beat indicator lights
 - **Progress Bar Color** - Color of the vertical progress bar
-- **Progress Bar Width** - Width in pixels (2-20)
+- **Progress Bar Width** - Width in pixels (2-50)
 - **Background Color** - Client screen background
 - **Background Flash Color** - Color for beat 1 and accent flashes
 - **Text Color** - Bar numbers and other text
@@ -309,12 +328,14 @@ This is normal and safe for local network use. The certificate ensures reliable 
 ### Display Elements
 - **Song Name** - Current song title (top left, smaller)
 - **Section Name** - Current section (top left, large)
-- **Bar Number** - Current bar (top right, very large)
+- **Bar Number with Beat** - Current bar and beat (top right, very large) - Format: "5|3" for beat 3 in bar 5
 - **Beat Lights** - One light per beat in the time signature (center of screen)
 - **Chords** - Chord symbols (bottom center)
 - **Progress Bar** - Vertical line moving left to right
+- **Runtime** - Elapsed time from song start in hh:mm:ss.ff format (bottom left, above time signature)
 - **Time Signature & Tempo** - Displayed at bottom left
 - **Tempo Change Indicator** - Shows "↗ Tempo Rising" or "↘ Tempo Falling" during transitions
+- **Video Background** - Optional video that plays in sync with the score (configurable opacity)
 
 ### Visual Cues
 - **Countoff** - Displays "COUNTOFF" with bar number "0"
@@ -374,6 +395,7 @@ Scores are saved as JSON files containing:
 - Countoff setting
 - Sections with tempo, time signature, and bars
 - Loop settings
+- Video background path and opacity settings
 
 ### MusicXML Import
 The application can import basic MusicXML files, extracting:

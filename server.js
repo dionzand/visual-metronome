@@ -8,9 +8,10 @@ const osc = require('node-osc');
 const JZZ = require('jzz');
 
 class MetronomeServer {
-  constructor(scoreData, displaySettings = null, repeatSong = false, oscSettings = null, midiSettings = null, conductorPassword = '1234') {
+  constructor(scoreData, displaySettings = null, repeatSong = false, oscSettings = null, midiSettings = null, conductorPassword = '1234', setlist = [], currentSongIndex = 0) {
     this.scoreData = scoreData;
     this.repeatSong = repeatSong;
+    this.videoBackgroundPath = scoreData.videoBackground?.path || null;
     this.oscSettings = oscSettings || { enabled: false, host: '127.0.0.1', port: 8000 };
     this.oscClient = null;
     this.lastTriggeredBar = -1; // Track last bar to avoid duplicate triggers
@@ -27,6 +28,10 @@ class MetronomeServer {
     // Conductor password
     this.conductorPassword = conductorPassword || '1234';
     this.authenticatedSessions = new Set();
+
+    // Setlist data
+    this.setlist = setlist || [];
+    this.currentSongIndex = currentSongIndex || 0;
 
     if (this.oscSettings.enabled) {
       this.setupOscClient();
@@ -73,6 +78,7 @@ class MetronomeServer {
     this.barStartTime = null;
     this.updateInterval = null;
     this.connectedClients = 0;
+    this.playbackStartTime = null; // Track when playback started for runtime calculation
 
     // Loop settings
     this.loopEnabled = scoreData.loop?.enabled || false;
@@ -272,6 +278,55 @@ class MetronomeServer {
         res.redirect('/conductor-login');
       }
     });
+
+    // Video streaming route
+    this.app.get('/video', (req, res) => {
+      if (!this.videoBackgroundPath || !fs.existsSync(this.videoBackgroundPath)) {
+        return res.status(404).send('Video not found');
+      }
+
+      const videoPath = this.videoBackgroundPath;
+      const stat = fs.statSync(videoPath);
+      const fileSize = stat.size;
+      const range = req.headers.range;
+
+      // Determine content type based on file extension
+      const ext = path.extname(videoPath).toLowerCase();
+      const contentTypeMap = {
+        '.mp4': 'video/mp4',
+        '.webm': 'video/webm',
+        '.ogg': 'video/ogg',
+        '.mov': 'video/quicktime',
+        '.avi': 'video/x-msvideo',
+        '.mkv': 'video/x-matroska'
+      };
+      const contentType = contentTypeMap[ext] || 'video/mp4';
+
+      if (range) {
+        // Parse range header
+        const parts = range.replace(/bytes=/, '').split('-');
+        const start = parseInt(parts[0], 10);
+        const end = parts[1] ? parseInt(parts[1], 10) : fileSize - 1;
+        const chunksize = (end - start) + 1;
+        const file = fs.createReadStream(videoPath, { start, end });
+        const head = {
+          'Content-Range': `bytes ${start}-${end}/${fileSize}`,
+          'Accept-Ranges': 'bytes',
+          'Content-Length': chunksize,
+          'Content-Type': contentType,
+        };
+        res.writeHead(206, head);
+        file.pipe(res);
+      } else {
+        // No range, send entire file
+        const head = {
+          'Content-Length': fileSize,
+          'Content-Type': contentType,
+        };
+        res.writeHead(200, head);
+        fs.createReadStream(videoPath).pipe(res);
+      }
+    });
   }
 
   generateSessionToken() {
@@ -285,8 +340,15 @@ class MetronomeServer {
       this.connectedClients++;
       this.notifyClientCountChange();
 
-      // Send current score data to newly connected client
-      socket.emit('score-data', this.scoreData);
+      // Send current score data to newly connected client (including video URL if available)
+      const scoreDataWithVideo = {
+        ...this.scoreData,
+        videoBackground: {
+          ...this.scoreData.videoBackground,
+          url: this.videoBackgroundPath ? '/video' : null
+        }
+      };
+      socket.emit('score-data', scoreDataWithVideo);
 
       // Send display settings
       socket.emit('display-settings', this.displaySettings);
@@ -302,6 +364,12 @@ class MetronomeServer {
       // Send vamp and tempo override state
       socket.emit('vamp-state-update', this.vampState);
       socket.emit('tempo-override-update', { tempo: this.conductorTempoOverride });
+
+      // Send setlist data
+      socket.emit('setlist-update', {
+        setlist: this.setlist,
+        currentIndex: this.currentSongIndex
+      });
 
       // Conductor control events
       socket.on('conductor-play', () => this.play());
@@ -708,6 +776,7 @@ class MetronomeServer {
 
     if (!this.barStartTime) {
       this.barStartTime = now;
+      this.playbackStartTime = now; // Initialize runtime tracking
     }
 
     // Start MIDI clock
@@ -814,6 +883,7 @@ class MetronomeServer {
     this.currentBarInSection = 0;
     this.currentBeat = 0;
     this.barStartTime = null;
+    this.playbackStartTime = null; // Reset runtime tracking
     this.lastTriggeredBar = -1; // Reset OSC trigger tracking
     this.redirectTracking = {}; // Reset redirect tracking
     this.pendingJump = null; // Clear any pending jumps
@@ -955,14 +1025,40 @@ class MetronomeServer {
     this.loopEnabled = newScoreData.loop?.enabled || false;
     this.loopStart = newScoreData.loop?.start || null;
     this.loopEnd = newScoreData.loop?.end || null;
+    this.videoBackgroundPath = newScoreData.videoBackground?.path || null;
 
     this.buildBarStructure();
 
     // Don't stop playback - just update the score data
     // This allows live editing while playing
 
-    // Send new score data to all clients
-    this.io.emit('score-data', this.scoreData);
+    // Send new score data to all clients (including video URL if available)
+    const scoreDataWithVideo = {
+      ...this.scoreData,
+      videoBackground: {
+        ...this.scoreData.videoBackground,
+        url: this.videoBackgroundPath ? '/video' : null
+      }
+    };
+    this.io.emit('score-data', scoreDataWithVideo);
+  }
+
+  updateSetlist(setlist, currentSongIndex) {
+    this.setlist = setlist || [];
+    this.currentSongIndex = currentSongIndex || 0;
+
+    // Send updated setlist to all conductor clients
+    this.io.emit('setlist-update', {
+      setlist: this.setlist,
+      currentIndex: this.currentSongIndex
+    });
+  }
+
+  updateCurrentSongIndex(index) {
+    this.currentSongIndex = index;
+
+    // Send updated index to all conductor clients
+    this.io.emit('current-song-index', this.currentSongIndex);
   }
 
   getSubdivisionCount(subdivision) {
@@ -1452,6 +1548,9 @@ class MetronomeServer {
     const accentPattern = barInfo.accentPattern || [];
     const isAccent = accentPattern.includes(this.currentBeat) || this.currentBeat === 0;
 
+    // Calculate runtime (time elapsed since playback started)
+    const runtime = this.playbackStartTime ? now - this.playbackStartTime : 0;
+
     return {
       isPlaying: true,
       barNumber: barInfo.absoluteNumber || 0,
@@ -1472,7 +1571,9 @@ class MetronomeServer {
       isTempoTransition: this.isInTempoTransition(),
       // Click track data
       serverTimestamp: Date.now(),
-      isAccent: isAccent
+      isAccent: isAccent,
+      // Runtime data
+      runtime: runtime
     };
   }
 }

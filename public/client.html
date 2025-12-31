@@ -21,6 +21,23 @@
       transition: background-color 0.1s ease;
     }
 
+    /* Video background */
+    .video-background {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      z-index: -1;
+      opacity: 0.3;
+      display: none;
+    }
+
+    .video-background.active {
+      display: block;
+    }
+
     body.first-beat {
       background-color: #2a0000;
     }
@@ -135,6 +152,17 @@
 
     .fermata-info.active {
       display: block;
+    }
+
+    /* Runtime display - bottom left, above time signature */
+    .runtime {
+      position: fixed;
+      bottom: 60px;
+      left: 60px;
+      font-size: 2em;
+      color: rgba(255, 255, 255, 0.4);
+      font-weight: 600;
+      font-family: 'Courier New', monospace;
     }
 
     /* Time signature - subtle, bottom left */
@@ -359,31 +387,176 @@
       }
     }
 
-    /* Conductor View Button */
-    .conductor-button {
+    /* Hamburger Menu */
+    .hamburger-button {
       position: fixed;
-      bottom: 20px;
-      right: 20px;
-      padding: 12px 20px;
-      background: rgba(58, 123, 200, 0.9);
-      color: #fff;
-      border: none;
+      top: 20px;
+      left: 20px;
+      width: 50px;
+      height: 50px;
+      background: rgba(0, 0, 0, 0.7);
+      border: 1px solid rgba(255, 255, 255, 0.2);
       border-radius: 8px;
-      font-size: 14px;
-      font-weight: 600;
       cursor: pointer;
-      z-index: 50;
+      z-index: 60;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      gap: 5px;
       transition: all 0.2s ease;
     }
 
-    .conductor-button:hover {
-      background: rgba(58, 123, 200, 1);
-      transform: translateY(-2px);
-      box-shadow: 0 4px 12px rgba(58, 123, 200, 0.5);
+    .hamburger-button:hover {
+      background: rgba(0, 0, 0, 0.9);
+      border-color: rgba(255, 255, 255, 0.4);
+    }
+
+    .hamburger-line {
+      width: 24px;
+      height: 3px;
+      background: #fff;
+      border-radius: 2px;
+      transition: all 0.3s ease;
+    }
+
+    .hamburger-button.active .hamburger-line:nth-child(1) {
+      transform: translateY(8px) rotate(45deg);
+    }
+
+    .hamburger-button.active .hamburger-line:nth-child(2) {
+      opacity: 0;
+    }
+
+    .hamburger-button.active .hamburger-line:nth-child(3) {
+      transform: translateY(-8px) rotate(-45deg);
+    }
+
+    .hamburger-menu {
+      position: fixed;
+      top: 80px;
+      left: 20px;
+      background: rgba(0, 0, 0, 0.95);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 8px;
+      padding: 8px 0;
+      z-index: 55;
+      min-width: 200px;
+      opacity: 0;
+      visibility: hidden;
+      transform: translateY(-10px);
+      transition: all 0.2s ease;
+    }
+
+    .hamburger-menu.active {
+      opacity: 1;
+      visibility: visible;
+      transform: translateY(0);
+    }
+
+    .hamburger-menu-item {
+      padding: 12px 20px;
+      color: #fff;
+      text-decoration: none;
+      display: block;
+      font-size: 14px;
+      font-weight: 600;
+      transition: all 0.2s ease;
+      cursor: pointer;
+    }
+
+    .hamburger-menu-item:hover {
+      background: rgba(58, 123, 200, 0.2);
+    }
+
+    /* Video controls */
+    .video-controls {
+      position: fixed;
+      top: 70px;
+      left: 20px;
+      background: rgba(0, 0, 0, 0.95);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 8px;
+      padding: 15px;
+      z-index: 55;
+      min-width: 300px;
+      opacity: 0;
+      visibility: hidden;
+      transform: translateY(-10px);
+      transition: all 0.2s ease;
+    }
+
+    .video-controls.active {
+      opacity: 1;
+      visibility: visible;
+      transform: translateY(0);
+    }
+
+    .video-controls-title {
+      font-size: 14px;
+      font-weight: 600;
+      margin-bottom: 10px;
+      color: #fff;
+    }
+
+    .video-url-input {
+      width: 100%;
+      padding: 8px;
+      background: #252525;
+      color: #e0e0e0;
+      border: 1px solid #444;
+      border-radius: 4px;
+      font-size: 13px;
+      margin-bottom: 10px;
+    }
+
+    .video-controls-buttons {
+      display: flex;
+      gap: 8px;
+    }
+
+    .video-btn {
+      flex: 1;
+      padding: 8px;
+      background: rgba(58, 123, 200, 0.3);
+      border: 1px solid rgba(58, 123, 200, 0.6);
+      color: white;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 12px;
+      font-weight: 600;
+      transition: all 0.2s ease;
+    }
+
+    .video-btn:hover {
+      background: rgba(58, 123, 200, 0.5);
+    }
+
+    .video-btn.danger {
+      background: rgba(200, 58, 58, 0.3);
+      border-color: rgba(200, 58, 58, 0.6);
+    }
+
+    .video-btn.danger:hover {
+      background: rgba(200, 58, 58, 0.5);
+    }
+
+    .video-opacity-control {
+      margin-top: 10px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 12px;
+    }
+
+    .video-opacity-control input[type="range"] {
+      flex: 1;
     }
   </style>
 </head>
 <body>
+  <!-- Video Background -->
+  <video id="videoBackground" class="video-background" loop muted playsinline></video>
   <div class="status disconnected" id="status">Disconnected</div>
 
   <div class="song-name" id="songName"></div>
@@ -393,6 +566,7 @@
   <div class="fermata-symbol" id="fermataSymbol">𝄐</div>
   <div class="fermata-info" id="fermataInfo"></div>
   <div class="tempo-change-indicator" id="tempoChangeIndicator"></div>
+  <div class="runtime" id="runtime">00:00:00.00</div>
   <div class="time-signature" id="timeSignature"></div>
 
   <div class="progress-trail" id="progressTrail"></div>
@@ -413,8 +587,32 @@
     </div>
   </div>
 
-  <!-- Conductor View Button -->
-  <button class="conductor-button" onclick="window.location.href='/conductor'">Conductor View</button>
+  <!-- Hamburger Menu -->
+  <div class="hamburger-button" id="hamburgerButton">
+    <div class="hamburger-line"></div>
+    <div class="hamburger-line"></div>
+    <div class="hamburger-line"></div>
+  </div>
+
+  <div class="hamburger-menu" id="hamburgerMenu">
+    <a href="/conductor" class="hamburger-menu-item">Conductor View</a>
+    <div class="hamburger-menu-item" id="videoMenuBtn">Video Background</div>
+  </div>
+
+  <!-- Video Controls -->
+  <div class="video-controls" id="videoControls">
+    <div class="video-controls-title">Video Background</div>
+    <input type="text" class="video-url-input" id="videoUrlInput" placeholder="Enter video URL or file path">
+    <div class="video-controls-buttons">
+      <button class="video-btn" id="loadVideoBtn">Load</button>
+      <button class="video-btn danger" id="clearVideoBtn">Clear</button>
+    </div>
+    <div class="video-opacity-control">
+      <label>Opacity:</label>
+      <input type="range" id="videoOpacity" min="0" max="100" value="30" step="5">
+      <span id="videoOpacityValue">30%</span>
+    </div>
+  </div>
 
   <!-- Click Track Controls -->
   <div class="click-controls" id="clickControls" style="display: none;">

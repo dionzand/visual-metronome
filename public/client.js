@@ -196,6 +196,7 @@ const songNameEl = document.getElementById('songName');
 const fermataSymbolEl = document.getElementById('fermataSymbol');
 const fermataInfoEl = document.getElementById('fermataInfo');
 const tempoChangeIndicatorEl = document.getElementById('tempoChangeIndicator');
+const runtimeEl = document.getElementById('runtime');
 
 // Create lights dynamically based on number of beats
 function createLights(numBeats) {
@@ -251,10 +252,48 @@ socket.on('disconnect', () => {
   statusEl.className = 'status disconnected';
 });
 
+socket.on('playback-started', () => {
+  console.log('Playback started');
+  // Start video playback in sync with score
+  if (videoBackground && videoBackground.src) {
+    videoBackground.play().catch(err => console.log('Video play error:', err));
+  }
+});
+
+socket.on('playback-paused', () => {
+  console.log('Playback paused');
+  // Pause video
+  if (videoBackground && videoBackground.src) {
+    videoBackground.pause();
+  }
+});
+
+socket.on('playback-stopped', () => {
+  console.log('Playback stopped');
+  // Stop and reset video
+  if (videoBackground && videoBackground.src) {
+    videoBackground.pause();
+    videoBackground.currentTime = 0;
+  }
+});
+
 socket.on('score-data', (data) => {
   console.log('Received score data:', data);
   scoreData = data;
   // Time signature and tempo will be updated dynamically during playback
+
+  // Load video background if specified in score
+  if (data.videoBackground && data.videoBackground.url) {
+    loadVideo(data.videoBackground.url);
+    if (data.videoBackground.opacity !== undefined) {
+      videoOpacity.value = data.videoBackground.opacity;
+      videoBackground.style.opacity = data.videoBackground.opacity / 100;
+      videoOpacityValue.textContent = `${data.videoBackground.opacity}%`;
+    }
+  } else {
+    // Clear video if score doesn't have one
+    clearVideo();
+  }
 });
 
 socket.on('display-settings', (settings) => {
@@ -428,6 +467,11 @@ socket.on('state-update', (state) => {
   // Update time signature and tempo
   timeSignatureEl.textContent = `${state.timeSignature.beats}/${state.timeSignature.noteValue} @ ${currentTempo} BPM`;
 
+  // Update runtime display
+  if (state.runtime !== undefined) {
+    updateRuntimeDisplay(state.runtime);
+  }
+
   // Show tempo change indicator if we're in a tempo transition
   if (state.isTempoTransition) {
     // Determine direction by comparing current tempo to last tempo
@@ -485,7 +529,8 @@ socket.on('state-update', (state) => {
   } else {
     sectionNameEl.textContent = state.sectionName || '';
     sectionNameEl.className = 'section-name';
-    barNumberEl.textContent = state.barNumber;
+    // Display bar number with beat number (e.g., "5|3" for beat 3 in bar 5)
+    barNumberEl.textContent = `${state.barNumber}|${state.beat + 1}`;
   }
 
   // Update chords
@@ -660,3 +705,116 @@ createLights(4);
 
 // Apply initial settings
 applyDisplaySettings();
+
+// Hamburger Menu Toggle
+const hamburgerButton = document.getElementById('hamburgerButton');
+const hamburgerMenu = document.getElementById('hamburgerMenu');
+
+hamburgerButton.addEventListener('click', (e) => {
+  e.stopPropagation();
+  hamburgerButton.classList.toggle('active');
+  hamburgerMenu.classList.toggle('active');
+});
+
+// Close menu when clicking outside
+document.addEventListener('click', (e) => {
+  if (!hamburgerButton.contains(e.target) && !hamburgerMenu.contains(e.target)) {
+    hamburgerButton.classList.remove('active');
+    hamburgerMenu.classList.remove('active');
+  }
+
+  // Close video controls when clicking outside
+  const videoControls = document.getElementById('videoControls');
+  const videoMenuBtn = document.getElementById('videoMenuBtn');
+  if (videoControls && !videoControls.contains(e.target) && !videoMenuBtn.contains(e.target)) {
+    videoControls.classList.remove('active');
+  }
+});
+
+// Runtime display function
+function updateRuntimeDisplay(runtimeMs) {
+  const totalSeconds = Math.floor(runtimeMs / 1000);
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+  const centiseconds = Math.floor((runtimeMs % 1000) / 10);
+
+  const formattedTime = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}.${String(centiseconds).padStart(2, '0')}`;
+  runtimeEl.textContent = formattedTime;
+}
+
+// Video background controls
+const videoBackground = document.getElementById('videoBackground');
+const videoMenuBtn = document.getElementById('videoMenuBtn');
+const videoControls = document.getElementById('videoControls');
+const videoUrlInput = document.getElementById('videoUrlInput');
+const loadVideoBtn = document.getElementById('loadVideoBtn');
+const clearVideoBtn = document.getElementById('clearVideoBtn');
+const videoOpacity = document.getElementById('videoOpacity');
+const videoOpacityValue = document.getElementById('videoOpacityValue');
+
+// Load saved video settings
+function loadVideoSettings() {
+  const savedUrl = localStorage.getItem('videoBackgroundUrl');
+  const savedOpacity = localStorage.getItem('videoBackgroundOpacity');
+
+  if (savedUrl) {
+    videoUrlInput.value = savedUrl;
+    loadVideo(savedUrl);
+  }
+
+  if (savedOpacity) {
+    videoOpacity.value = savedOpacity;
+    videoBackground.style.opacity = savedOpacity / 100;
+    videoOpacityValue.textContent = `${savedOpacity}%`;
+  }
+}
+
+function loadVideo(url) {
+  if (!url) return;
+
+  videoBackground.src = url;
+  videoBackground.classList.add('active');
+  localStorage.setItem('videoBackgroundUrl', url);
+}
+
+function clearVideo() {
+  videoBackground.src = '';
+  videoBackground.classList.remove('active');
+  videoUrlInput.value = '';
+  localStorage.removeItem('videoBackgroundUrl');
+}
+
+// Video menu button
+videoMenuBtn.addEventListener('click', (e) => {
+  e.stopPropagation();
+  videoControls.classList.toggle('active');
+  hamburgerMenu.classList.remove('active');
+  hamburgerButton.classList.remove('active');
+});
+
+// Load video button
+loadVideoBtn.addEventListener('click', () => {
+  const url = videoUrlInput.value.trim();
+  if (url) {
+    loadVideo(url);
+    videoControls.classList.remove('active');
+  }
+});
+
+// Clear video button
+clearVideoBtn.addEventListener('click', () => {
+  clearVideo();
+  videoControls.classList.remove('active');
+});
+
+// Video opacity control
+videoOpacity.addEventListener('input', (e) => {
+  const opacity = e.target.value;
+  videoBackground.style.opacity = opacity / 100;
+  videoOpacityValue.textContent = `${opacity}%`;
+  localStorage.setItem('videoBackgroundOpacity', opacity);
+});
+
+// Load video settings on page load
+loadVideoSettings();

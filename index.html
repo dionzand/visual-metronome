@@ -35,6 +35,21 @@
       </div>
 
       <div class="section">
+        <h2 title="Video background for this score">Video Background</h2>
+        <div class="settings-grid">
+          <div class="setting">
+            <label for="videoBackgroundPath" title="Path to video file that will be displayed as background">Video File Path:</label>
+            <input type="text" id="videoBackgroundPath" class="score-name-input" placeholder="e.g., C:\Videos\background.mp4" title="Enter full path to video file">
+          </div>
+          <div class="setting">
+            <label for="videoOpacitySetting" title="Opacity of the video background (0-100%)">Video Opacity:</label>
+            <input type="range" id="videoOpacitySetting" min="0" max="100" value="30" step="5" title="Adjust video opacity (0-100%)">
+            <span id="videoOpacitySettingDisplay">30%</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="section">
         <h2 title="Configure playback behavior settings">Playback Settings</h2>
         <div class="settings-grid">
           <div class="setting">
@@ -266,7 +281,7 @@
           </div>
           <div class="setting">
             <label for="progressBarWidth" title="Thickness of the progress bar">Progress Bar Width:</label>
-            <input type="range" id="progressBarWidth" min="2" max="20" value="4" title="Adjust progress bar thickness (2-20px)">
+            <input type="range" id="progressBarWidth" min="2" max="50" value="4" title="Adjust progress bar thickness (2-50px)">
             <span id="progressBarWidthDisplay">4px</span>
           </div>
           <div class="setting">

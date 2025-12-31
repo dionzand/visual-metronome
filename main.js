@@ -163,7 +163,7 @@ ipcMain.handle('start-server', async (event, data) => {
     metronomeServer.stop();
   }
 
-  const { scoreData, displaySettings, repeatSong, oscSettings, midiSettings, port, conductorPassword } = data;
+  const { scoreData, displaySettings, repeatSong, oscSettings, midiSettings, port, conductorPassword, setlist, currentSongIndex } = data;
   const requestedPort = port || 3000;
 
   // Try to start server with port fallback
@@ -173,7 +173,7 @@ ipcMain.handle('start-server', async (event, data) => {
 
   for (const tryPort of suggestedPorts) {
     try {
-      metronomeServer = new MetronomeServer(scoreData, displaySettings, repeatSong, oscSettings, midiSettings, conductorPassword);
+      metronomeServer = new MetronomeServer(scoreData, displaySettings, repeatSong, oscSettings, midiSettings, conductorPassword, setlist, currentSongIndex);
       startResult = await metronomeServer.start(tryPort);
       attemptedPort = tryPort;
       break; // Success!
@@ -215,6 +215,22 @@ ipcMain.handle('start-server', async (event, data) => {
 ipcMain.handle('update-display-settings', async (event, displaySettings) => {
   if (metronomeServer) {
     metronomeServer.updateDisplaySettings(displaySettings);
+    return { success: true };
+  }
+  return { success: false, error: 'Server not started' };
+});
+
+ipcMain.handle('update-setlist', async (event, setlist, currentSongIndex) => {
+  if (metronomeServer) {
+    metronomeServer.updateSetlist(setlist, currentSongIndex);
+    return { success: true };
+  }
+  return { success: false, error: 'Server not started' };
+});
+
+ipcMain.handle('update-current-song-index', async (event, index) => {
+  if (metronomeServer) {
+    metronomeServer.updateCurrentSongIndex(index);
     return { success: true };
   }
   return { success: false, error: 'Server not started' };
@@ -435,6 +451,18 @@ function setupServerCallbacks() {
     metronomeServer.onSongEnd = () => {
       if (mainWindow) {
         mainWindow.webContents.send('song-ended');
+      }
+    };
+
+    metronomeServer.onNextSongRequested = () => {
+      if (mainWindow) {
+        mainWindow.webContents.send('conductor-next-song');
+      }
+    };
+
+    metronomeServer.onGoToSongRequested = (songIndex) => {
+      if (mainWindow) {
+        mainWindow.webContents.send('conductor-go-to-song', songIndex);
       }
     };
   }

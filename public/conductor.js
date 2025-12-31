@@ -54,6 +54,7 @@ const vampBannerEl = document.getElementById('vampBanner');
 const vampBannerTextEl = document.getElementById('vampBannerText');
 const timeSignatureDisplayEl = document.getElementById('timeSignatureDisplay');
 const safetyCountEl = document.getElementById('safetyCount');
+const runtimeDisplayEl = document.getElementById('runtimeDisplay');
 
 // Transport buttons
 const stopBtn = document.getElementById('stopBtn');
@@ -77,6 +78,31 @@ socket.on('disconnect', () => {
   statusText.textContent = 'Disconnected';
 });
 
+socket.on('playback-started', () => {
+  console.log('Playback started');
+  // Start video playback in sync with score
+  if (videoBackground && videoBackground.src) {
+    videoBackground.play().catch(err => console.log('Video play error:', err));
+  }
+});
+
+socket.on('playback-paused', () => {
+  console.log('Playback paused');
+  // Pause video
+  if (videoBackground && videoBackground.src) {
+    videoBackground.pause();
+  }
+});
+
+socket.on('playback-stopped', () => {
+  console.log('Playback stopped');
+  // Stop and reset video
+  if (videoBackground && videoBackground.src) {
+    videoBackground.pause();
+    videoBackground.currentTime = 0;
+  }
+});
+
 socket.on('score-data', (data) => {
   console.log('Received score data:', data);
   console.log('Number of sections:', data.sections ? data.sections.length : 0);
@@ -89,6 +115,19 @@ socket.on('score-data', (data) => {
   renderSectionList();
   renderPredefinedVamps();
   populateBarDropdowns();
+
+  // Load video background if specified in score
+  if (data.videoBackground && data.videoBackground.url) {
+    loadVideo(data.videoBackground.url);
+    if (data.videoBackground.opacity !== undefined) {
+      videoOpacity.value = data.videoBackground.opacity;
+      videoBackground.style.opacity = data.videoBackground.opacity / 100;
+      videoOpacityValue.textContent = `${data.videoBackground.opacity}%`;
+    }
+  } else {
+    // Clear video if score doesn't have one
+    clearVideo();
+  }
 });
 
 socket.on('setlist-update', (data) => {
@@ -114,11 +153,17 @@ socket.on('state-update', (state) => {
   currentTempo = state.tempo;
 
   // Update UI
-  currentBarEl.textContent = state.barNumber ? `Bar ${state.barNumber}` : 'Bar --';
+  // Display bar number with beat number (e.g., "Bar 5|3" for beat 3 in bar 5)
+  currentBarEl.textContent = state.barNumber ? `Bar ${state.barNumber}|${state.beat + 1}` : 'Bar --';
   currentSectionEl.textContent = state.sectionName || '--';
   currentChordsEl.textContent = state.chords || '--';
   tempoDisplayEl.textContent = `${Math.round(state.tempo)} BPM`;
   timeSignatureDisplayEl.textContent = `${state.timeSignature.beats}/${state.timeSignature.noteValue} @ ${Math.round(state.tempo)} BPM`;
+
+  // Update runtime display
+  if (state.runtime !== undefined) {
+    updateRuntimeDisplay(state.runtime);
+  }
 
   // Update progress line - move from left (0%) to right (100%)
   if (progressLineEl) {
@@ -534,6 +579,20 @@ document.querySelectorAll('.btn-tempo').forEach(btn => {
   });
 });
 
+// Runtime display function
+function updateRuntimeDisplay(runtimeMs) {
+  const totalSeconds = Math.floor(runtimeMs / 1000);
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+  const centiseconds = Math.floor((runtimeMs % 1000) / 10);
+
+  const formattedTime = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}.${String(centiseconds).padStart(2, '0')}`;
+  if (runtimeDisplayEl) {
+    runtimeDisplayEl.textContent = formattedTime;
+  }
+}
+
 // Initialize
 console.log('Conductor view initialized');
 updateVampUI(); // Set initial button states
@@ -542,3 +601,84 @@ updateVampUI(); // Set initial button states
 if (progressLineEl) {
   progressLineEl.style.left = '0%';
 }
+
+// Video background controls
+const videoBackground = document.getElementById('videoBackground');
+const videoControlsBtn = document.getElementById('videoControlsBtn');
+const videoControlsPanel = document.getElementById('videoControlsPanel');
+const videoUrlInput = document.getElementById('videoUrlInput');
+const loadVideoBtn = document.getElementById('loadVideoBtn');
+const clearVideoBtn = document.getElementById('clearVideoBtn');
+const videoOpacity = document.getElementById('videoOpacity');
+const videoOpacityValue = document.getElementById('videoOpacityValue');
+
+// Load saved video settings
+function loadVideoSettings() {
+  const savedUrl = localStorage.getItem('conductorVideoBackgroundUrl');
+  const savedOpacity = localStorage.getItem('conductorVideoBackgroundOpacity');
+
+  if (savedUrl) {
+    videoUrlInput.value = savedUrl;
+    loadVideo(savedUrl);
+  }
+
+  if (savedOpacity) {
+    videoOpacity.value = savedOpacity;
+    videoBackground.style.opacity = savedOpacity / 100;
+    videoOpacityValue.textContent = `${savedOpacity}%`;
+  }
+}
+
+function loadVideo(url) {
+  if (!url) return;
+
+  videoBackground.src = url;
+  videoBackground.classList.add('active');
+  localStorage.setItem('conductorVideoBackgroundUrl', url);
+}
+
+function clearVideo() {
+  videoBackground.src = '';
+  videoBackground.classList.remove('active');
+  videoUrlInput.value = '';
+  localStorage.removeItem('conductorVideoBackgroundUrl');
+}
+
+// Video controls button
+videoControlsBtn.addEventListener('click', (e) => {
+  e.stopPropagation();
+  videoControlsPanel.classList.toggle('active');
+});
+
+// Load video button
+loadVideoBtn.addEventListener('click', () => {
+  const url = videoUrlInput.value.trim();
+  if (url) {
+    loadVideo(url);
+    videoControlsPanel.classList.remove('active');
+  }
+});
+
+// Clear video button
+clearVideoBtn.addEventListener('click', () => {
+  clearVideo();
+  videoControlsPanel.classList.remove('active');
+});
+
+// Video opacity control
+videoOpacity.addEventListener('input', (e) => {
+  const opacity = e.target.value;
+  videoBackground.style.opacity = opacity / 100;
+  videoOpacityValue.textContent = `${opacity}%`;
+  localStorage.setItem('conductorVideoBackgroundOpacity', opacity);
+});
+
+// Close video controls when clicking outside
+document.addEventListener('click', (e) => {
+  if (videoControlsPanel && !videoControlsPanel.contains(e.target) && !videoControlsBtn.contains(e.target)) {
+    videoControlsPanel.classList.remove('active');
+  }
+});
+
+// Load video settings on page load
+loadVideoSettings();

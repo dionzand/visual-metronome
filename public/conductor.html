@@ -5,8 +5,113 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Conductor View - Visual Metronome</title>
   <link rel="stylesheet" href="conductor.css">
+  <style>
+    /* Video controls */
+    .video-controls-btn {
+      background: rgba(58, 123, 200, 0.3);
+      border: 1px solid rgba(58, 123, 200, 0.6);
+      color: white;
+      padding: 8px 15px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 600;
+      transition: all 0.2s ease;
+      margin-left: 10px;
+    }
+
+    .video-controls-btn:hover {
+      background: rgba(58, 123, 200, 0.5);
+    }
+
+    .video-controls-panel {
+      position: fixed;
+      top: 70px;
+      right: 20px;
+      background: rgba(0, 0, 0, 0.95);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 8px;
+      padding: 15px;
+      z-index: 1000;
+      min-width: 320px;
+      opacity: 0;
+      visibility: hidden;
+      transform: translateY(-10px);
+      transition: all 0.2s ease;
+    }
+
+    .video-controls-panel.active {
+      opacity: 1;
+      visibility: visible;
+      transform: translateY(0);
+    }
+
+    .video-controls-title {
+      font-size: 16px;
+      font-weight: 600;
+      margin-bottom: 12px;
+      color: #fff;
+    }
+
+    .video-url-input {
+      width: 100%;
+      padding: 10px;
+      background: #252525;
+      color: #e0e0e0;
+      border: 1px solid #444;
+      border-radius: 4px;
+      font-size: 14px;
+      margin-bottom: 12px;
+    }
+
+    .video-controls-buttons {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+
+    .video-btn {
+      flex: 1;
+      padding: 10px;
+      background: rgba(58, 123, 200, 0.3);
+      border: 1px solid rgba(58, 123, 200, 0.6);
+      color: white;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 600;
+      transition: all 0.2s ease;
+    }
+
+    .video-btn:hover {
+      background: rgba(58, 123, 200, 0.5);
+    }
+
+    .video-btn.danger {
+      background: rgba(200, 58, 58, 0.3);
+      border-color: rgba(200, 58, 58, 0.6);
+    }
+
+    .video-btn.danger:hover {
+      background: rgba(200, 58, 58, 0.5);
+    }
+
+    .video-opacity-control {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 13px;
+    }
+
+    .video-opacity-control input[type="range"] {
+      flex: 1;
+    }
+  </style>
 </head>
 <body>
+  <!-- Video Background -->
+  <video id="videoBackground" class="video-background" loop muted playsinline></video>
+
   <!-- Header Bar -->
   <div class="header-bar">
     <div class="status-section">
@@ -15,6 +120,22 @@
     </div>
     <div class="song-info">
       <span>Song: <strong id="songName">--</strong></span>
+      <button class="video-controls-btn" id="videoControlsBtn">Video Background</button>
+    </div>
+  </div>
+
+  <!-- Video Controls Panel -->
+  <div class="video-controls-panel" id="videoControlsPanel">
+    <div class="video-controls-title">Video Background</div>
+    <input type="text" class="video-url-input" id="videoUrlInput" placeholder="Enter video URL or file path">
+    <div class="video-controls-buttons">
+      <button class="video-btn" id="loadVideoBtn">Load</button>
+      <button class="video-btn danger" id="clearVideoBtn">Clear</button>
+    </div>
+    <div class="video-opacity-control">
+      <label>Opacity:</label>
+      <input type="range" id="videoOpacity" min="0" max="100" value="20" step="5">
+      <span id="videoOpacityValue">20%</span>
     </div>
   </div>
 
@@ -87,6 +208,7 @@
         <div class="info-section" id="currentSection">--</div>
         <div class="info-bar" id="currentBar">Bar --</div>
         <div class="info-chords" id="currentChords">--</div>
+        <div class="info-runtime" id="runtimeDisplay">00:00:00.00</div>
         <div class="info-time-sig" id="timeSignatureDisplay">4/4 @ 120 BPM</div>
       </div>
 
